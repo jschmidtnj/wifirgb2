@@ -1,0 +1,6 @@
+{
+  "terminal.integrated.env.linux": {
+    "PATH": "/home/joshua/.platformio/penv/bin:/home/joshua/.platformio/penv:/home/joshua/google-cloud-sdk/bin:/opt/google-cloud-sdk/bin:/opt/google-cloud-sdk/bin:/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/lib/jvm/default/bin:/usr/bin/site_perl:/usr/bin/vendor_perl:/usr/bin/core_perl:/usr/lib/jvm/default/bin:/usr/bin/site_perl:/usr/bin/vendor_perl:/usr/bin/core_perl:~/flutter/bin:~/android-studio/bin:~/Android/Sdk/tools/bin:~/.gem/ruby/2.6.0/bin:/home/joshua/.local/bin",
+    "PLATFORMIO_CALLER": "vscode"
+  }
+}
