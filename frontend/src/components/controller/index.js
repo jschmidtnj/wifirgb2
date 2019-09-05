@@ -49,20 +49,18 @@ class Controller extends React.Component {
   }
 
   componentDidMount() {
-    const clientConnect = () => {
-      this.state.client = connect(
-        process.env.GATSBY_MQTT_HOST,
-        mqttOptions
-      )
-    }
-    clientConnect()
-    this.state.client.on('disconnect', () => {
-      clientConnect()
-    })
+    this.state.client = connect(
+      process.env.GATSBY_MQTT_HOST,
+      mqttOptions
+    )
     this.state.client.on('connect', () => {
       console.log('connected!')
       this.state.client.subscribe(mqttErrorTopic, err => {
         if (!err) console.log('subscribed to error topic')
+        else console.error(err)
+      })
+      this.state.client.subscribe(mqttControlTopic, err => {
+        if (!err) console.log('subscribed to control topic')
         else console.error(err)
       })
     })
