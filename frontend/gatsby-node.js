@@ -1,3 +1,4 @@
+const webpack = require('webpack')
 const each = require('lodash/each')
 const path = require('path')
 const PostTemplate = path.resolve('./src/templates/index.js')
@@ -70,5 +71,8 @@ exports.onCreateWebpackConfig = ({ actions }) => {
         scss: path.resolve(__dirname, 'src/scss'),
       },
     },
+    plugins: [
+      new webpack.NormalModuleReplacementPlugin(/^mqtt$/, 'mqtt/dist/mqtt.js'),
+    ],
   })
 }

@@ -1,7 +1,7 @@
 import React from 'react'
 import { SketchPicker } from 'react-color'
 import Select from 'react-select'
-import mqtt from 'mqtt'
+import { connect } from 'mqtt'
 import './style.scss'
 
 const selectOptions = [
@@ -9,7 +9,8 @@ const selectOptions = [
   { value: 'random', label: 'Random' },
 ]
 
-const mqttTopic = 'rgb'
+const mqttControlTopic = 'rgb/control'
+const mqttErrorTopic = 'rgb/control'
 
 const mqttOptions = {
   port: process.env.MQTT_PORT,
@@ -28,8 +29,6 @@ const mqttOptions = {
   encoding: 'utf8',
 }
 
-const client = mqtt.connect(process.env.MQTT_HOST, mqttOptions)
-
 class Controller extends React.Component {
   constructor(props) {
     super(props)
@@ -46,23 +45,28 @@ class Controller extends React.Component {
       formErrors: { password: '' },
       passwordValid: false,
       formValid: false,
+      client: null,
     }
   }
 
   componentDidMount() {
-    client.on('connect', () => {
-      client.subscribe(mqttTopic, err => {
+    this.state.client = connect(
+      process.env.MQTT_HOST,
+      mqttOptions
+    )
+    this.state.client.on('connect', () => {
+      this.state.client.subscribe(mqttErrorTopic, err => {
         if (!err) {
-          console.log('subscribed to topic')
+          console.log('subscribed to error topic')
         } else {
           console.error(err)
         }
       })
     })
-    client.on('message', (topic, message) => {
+    this.state.client.on('message', (topic, message) => {
       // message is Buffer
       console.log(`${topic}: ${message.toString()}`)
-      client.end()
+      this.state.client.end()
     })
   }
 
@@ -146,9 +150,11 @@ class Controller extends React.Component {
     }
   }
 
-  onSubmit() {
-    client.publish(
-      mqttTopic,
+  onSubmit = evt => {
+    evt.preventDefault()
+    console.log('submit now!')
+    this.state.client.publish(
+      mqttControlTopic,
       JSON.stringify({
         on: this.state.on,
         mode: this.state.mode,
@@ -167,7 +173,7 @@ class Controller extends React.Component {
         }}
       >
         <h2>Controller</h2>
-        <form>
+        <form onSubmit={this.onSubmit}>
           <div className="form-group mt-4">
             <label htmlFor="powerOn">Power</label>
             <div className="form-check">
