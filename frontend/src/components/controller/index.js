@@ -102,7 +102,7 @@ class Controller extends React.Component {
   }
 
   validateForm() {
-    this.setState({ formValid: this.state.passwordValid && this.state.mode })
+    this.setState({ formValid: this.state.passwordValid })
   }
 
   setPower = e => {
@@ -168,6 +168,7 @@ class Controller extends React.Component {
           console.log('got error submitting')
           console.log(err)
         }
+        this.state.client.reconnect()
       }
     )
   }
