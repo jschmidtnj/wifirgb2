@@ -53,6 +53,10 @@ class Controller extends React.Component {
       process.env.GATSBY_MQTT_HOST,
       mqttOptions
     )
+    this.state.client.on('disconnect', () => {
+      console.log('reconnect')
+      this.state.client.reconnect()
+    })
     this.state.client.on('connect', () => {
       console.log('connected!')
       this.state.client.subscribe(mqttErrorTopic, err => {
@@ -67,7 +71,6 @@ class Controller extends React.Component {
     this.state.client.on('message', (topic, message) => {
       // message is Buffer
       console.log(`${topic}: ${message.toString()}`)
-      this.state.client.end()
     })
   }
 
@@ -168,7 +171,6 @@ class Controller extends React.Component {
           console.log('got error submitting')
           console.log(err)
         }
-        this.state.client.reconnect()
       }
     )
   }
