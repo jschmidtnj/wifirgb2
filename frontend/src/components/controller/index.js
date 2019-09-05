@@ -54,12 +54,10 @@ class Controller extends React.Component {
       mqttOptions
     )
     this.state.client.on('connect', () => {
+      console.log('connected!')
       this.state.client.subscribe(mqttErrorTopic, err => {
-        if (!err) {
-          console.log('subscribed to error topic')
-        } else {
-          console.error(err)
-        }
+        if (!err) console.log('subscribed to error topic')
+        else console.error(err)
       })
     })
     this.state.client.on('message', (topic, message) => {
@@ -159,7 +157,14 @@ class Controller extends React.Component {
         mode: this.state.mode,
         color: this.state.color,
         password: this.state.password,
-      })
+      }),
+      {},
+      err => {
+        if (err) {
+          console.log('got error submitting')
+          console.log(err)
+        }
+      }
     )
   }
 
