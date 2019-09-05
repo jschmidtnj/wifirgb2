@@ -13,15 +13,15 @@ const mqttControlTopic = 'rgb/control'
 const mqttErrorTopic = 'rgb/control'
 
 const mqttOptions = {
-  port: process.env.MQTT_PORT,
-  host: process.env.MQTT_HOST,
+  port: process.env.GATSBY_MQTT_PORT,
+  host: process.env.GATSBY_MQTT_HOST,
   clientId:
     'mqttjs_' +
     Math.random()
       .toString(16)
       .substr(2, 8),
-  username: process.env.MQTT_USERNAME,
-  password: process.env.MQTT_PASSWORD,
+  username: process.env.GATSBY_MQTT_USERNAME,
+  password: process.env.GATSBY_MQTT_PASSWORD,
   keepalive: 60,
   reconnectPeriod: 1000,
   protocolVersion: 3,
@@ -51,7 +51,7 @@ class Controller extends React.Component {
 
   componentDidMount() {
     this.state.client = connect(
-      process.env.MQTT_HOST,
+      process.env.GATSBY_MQTT_HOST,
       mqttOptions
     )
     this.state.client.on('connect', () => {
