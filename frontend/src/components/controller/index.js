@@ -1,7 +1,7 @@
 import React from 'react'
 import { SketchPicker } from 'react-color'
 import Select from 'react-select'
-import { connect } from 'mqtt'
+import { connect, createClient } from 'mqtt'
 import './style.scss'
 
 const selectOptions = [
@@ -49,10 +49,16 @@ class Controller extends React.Component {
   }
 
   componentDidMount() {
-    this.state.client = connect(
-      process.env.GATSBY_MQTT_HOST,
-      mqttOptions
-    )
+    const clientConnect = () => {
+      this.state.client = connect(
+        process.env.GATSBY_MQTT_HOST,
+        mqttOptions
+      )
+    }
+    clientConnect()
+    this.state.client.on('disconnect', () => {
+      clientConnect()
+    })
     this.state.client.on('connect', () => {
       console.log('connected!')
       this.state.client.subscribe(mqttErrorTopic, err => {
