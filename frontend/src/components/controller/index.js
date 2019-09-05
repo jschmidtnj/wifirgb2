@@ -24,7 +24,6 @@ const mqttOptions = {
   password: process.env.GATSBY_MQTT_PASSWORD,
   keepalive: 60,
   reconnectPeriod: 1000,
-  protocolVersion: 3,
   clean: true,
   encoding: 'utf8',
 }
