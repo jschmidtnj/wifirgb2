@@ -2,6 +2,8 @@ import React from 'react'
 import { SketchPicker } from 'react-color'
 import Select from 'react-select'
 import { connect, createClient } from 'mqtt'
+import { ToastContainer, toast } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.min.css'
 import './style.scss'
 
 const selectOptions = [
@@ -61,12 +63,20 @@ class Controller extends React.Component {
       console.log('connected!')
       this.state.client.subscribe(mqttErrorTopic, err => {
         if (!err) console.log('subscribed to error topic')
-        else console.error(err)
+        else toast.error(`error connecting: ${JSON.stringify(err)}`)
       })
     })
     this.state.client.on('message', (topic, message) => {
       // message is Buffer
-      console.log(`${topic}: ${message.toString()}`)
+      const messageStr = message.toString()
+      console.log(`${topic}: ${messageStr}`)
+      if (topic === mqttErrorTopic) {
+        const messageObj = JSON.parse(messageStr)
+        if (messageObj && messageObj.error) toast.error(messageStr)
+        else toast.error('error: no error message found')
+      } else {
+        toast.info(messageStr)
+      }
     })
   }
 
@@ -83,7 +93,6 @@ class Controller extends React.Component {
   validateField(fieldName, value) {
     let fieldValidationErrors = this.state.formErrors
     let passwordValid = this.state.passwordValid
-
     switch (fieldName) {
       case 'password':
         passwordValid = value.length >= 6
@@ -158,23 +167,22 @@ class Controller extends React.Component {
 
   onSubmit = evt => {
     evt.preventDefault()
-    console.log('submit now!')
-    this.state.client.publish(
-      mqttControlTopic,
-      JSON.stringify({
-        on: this.state.on,
-        mode: this.state.mode,
-        color: this.state.color,
-        password: this.state.password,
-      }),
-      {},
-      err => {
-        if (err) {
-          console.log('got error submitting')
-          console.log(err)
-        }
-      }
-    )
+    const command = JSON.stringify({
+      on: this.state.on,
+      mode: this.state.mode,
+      color: {
+        r: this.state.color.r,
+        g: this.state.color.g,
+        b: this.state.color.b,
+        a: Math.round((1 - this.state.color.a) * 255),
+      },
+      password: this.state.password,
+    })
+    console.log(`send ${command}`)
+    this.state.client.publish(mqttControlTopic, command, {}, err => {
+      if (err) toast.error(`got error submitting: ${JSON.stringify(err)}`)
+      else toast.success('sent command')
+    })
   }
 
   render() {
@@ -185,6 +193,17 @@ class Controller extends React.Component {
           marginBottom: '30rem',
         }}
       >
+        <ToastContainer
+          position="top-right"
+          autoClose={5000}
+          hideProgressBar={false}
+          newestOnTop={false}
+          closeOnClick
+          rtl={false}
+          pauseOnVisibilityChange
+          draggable
+          pauseOnHover
+        />
         <h2>Controller</h2>
         <form onSubmit={this.onSubmit}>
           <div className="form-group mt-4">

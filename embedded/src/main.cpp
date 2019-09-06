@@ -59,12 +59,11 @@ void callback(char *thetopic, byte *payload, unsigned int length) {
         return;
       }
       if (strcmp(data["mode"], "color") == 0) {
-        if (!(data["color"] && data["color"]["r"] && data["color"]["g"] &&
-              data["color"]["b"] && data["color"]["a"] &&
-              data["color"]["r"] >= 0 && data["color"]["r"] <= 255 &&
-              data["color"]["g"] >= 0 && data["color"]["g"] <= 255 &&
-              data["color"]["b"] >= 0 && data["color"]["b"] <= 255 &&
-              data["color"]["a"] >= 0 && data["color"]["a"] <= 255)) {
+        if (!(data["color"] && data["color"]["r"] >= 0 &&
+              data["color"]["r"] <= 255 && data["color"]["g"] >= 0 &&
+              data["color"]["g"] <= 255 && data["color"]["b"] >= 0 &&
+              data["color"]["b"] <= 255 && data["color"]["a"] >= 0 &&
+              data["color"]["a"] <= 255)) {
           string errorMessageStr = "invalid rgba input";
           Serial.println(errorMessageStr.c_str());
           string errorMessageJsonStr =
@@ -145,9 +144,8 @@ void FillLEDsFromPaletteColors(uint8_t colorIndex) {
 
 // This function fills the palette with totally random colors.
 void SetupTotallyRandomPalette() {
-  for (int i = 0; i < 16; i++) {
+  for (int i = 0; i < 16; i++)
     currentPalette[i] = CHSV(random8(), 255, random8());
-  }
 }
 
 // This function sets up a palette of black and white stripes,
@@ -183,61 +181,55 @@ const TProgmemPalette16 myRedWhiteBluePalette_p PROGMEM = {
     CRGB::Red,
     CRGB::Gray, // 'white' is too bright compared to red and blue
     CRGB::Blue, CRGB::Black,
-
     CRGB::Red,  CRGB::Gray,  CRGB::Blue,  CRGB::Black,
-
     CRGB::Red,  CRGB::Red,   CRGB::Gray,  CRGB::Gray,
     CRGB::Blue, CRGB::Blue,  CRGB::Black, CRGB::Black};
 
 void ChangePalettePeriodically() {
   uint8_t secondHand = (millis() / 1000) % 60;
-  static uint8_t lastSecond = 99;
-  if (lastSecond != secondHand) {
-    lastSecond = secondHand;
-    if (secondHand == 0) {
-      currentPalette = RainbowColors_p;
-      currentBlending = LINEARBLEND;
-    }
-    if (secondHand == 10) {
-      currentPalette = RainbowStripeColors_p;
-      currentBlending = NOBLEND;
-    }
-    if (secondHand == 15) {
-      currentPalette = RainbowStripeColors_p;
-      currentBlending = LINEARBLEND;
-    }
-    if (secondHand == 20) {
-      SetupPurpleAndGreenPalette();
-      currentBlending = LINEARBLEND;
-    }
-    if (secondHand == 25) {
-      SetupTotallyRandomPalette();
-      currentBlending = LINEARBLEND;
-    }
-    if (secondHand == 30) {
-      SetupBlackAndWhiteStripedPalette();
-      currentBlending = NOBLEND;
-    }
-    if (secondHand == 35) {
-      SetupBlackAndWhiteStripedPalette();
-      currentBlending = LINEARBLEND;
-    }
-    if (secondHand == 40) {
-      currentPalette = CloudColors_p;
-      currentBlending = LINEARBLEND;
-    }
-    if (secondHand == 45) {
-      currentPalette = PartyColors_p;
-      currentBlending = LINEARBLEND;
-    }
-    if (secondHand == 50) {
-      currentPalette = myRedWhiteBluePalette_p;
-      currentBlending = NOBLEND;
-    }
-    if (secondHand == 55) {
-      currentPalette = myRedWhiteBluePalette_p;
-      currentBlending = LINEARBLEND;
-    }
+  if (secondHand == 0) {
+    currentPalette = RainbowColors_p;
+    currentBlending = LINEARBLEND;
+  }
+  if (secondHand == 10) {
+    currentPalette = RainbowStripeColors_p;
+    currentBlending = NOBLEND;
+  }
+  if (secondHand == 15) {
+    currentPalette = RainbowStripeColors_p;
+    currentBlending = LINEARBLEND;
+  }
+  if (secondHand == 20) {
+    SetupPurpleAndGreenPalette();
+    currentBlending = LINEARBLEND;
+  }
+  if (secondHand == 25) {
+    SetupTotallyRandomPalette();
+    currentBlending = LINEARBLEND;
+  }
+  if (secondHand == 30) {
+    SetupBlackAndWhiteStripedPalette();
+    currentBlending = NOBLEND;
+  }
+  if (secondHand == 35) {
+    SetupBlackAndWhiteStripedPalette();
+    currentBlending = LINEARBLEND;
+  }
+  if (secondHand == 40) {
+    currentPalette = CloudColors_p;
+    currentBlending = LINEARBLEND;
+  }
+  if (secondHand == 45) {
+    currentPalette = PartyColors_p;
+    currentBlending = LINEARBLEND;
+  }
+  if (secondHand == 50) {
+    currentPalette = myRedWhiteBluePalette_p;
+    currentBlending = NOBLEND;
+  }
+  if (secondHand == 55) {
+    currentPalette = myRedWhiteBluePalette_p;
+    currentBlending = LINEARBLEND;
   }
 }
 
