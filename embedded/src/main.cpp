@@ -49,11 +49,6 @@ void callback(char *thetopic, byte *payload, unsigned int length) {
       client.publish(errorTopic, errorMessageJsonStr.c_str());
       return;
     }
-    if (data["on"]) {
-      on = data["on"];
-      if (!on)
-        justTurnedOff = true;
-    }
     if (data["mode"]) {
       if (!(strcmp(data["mode"], "color") == 0 ||
             strcmp(data["mode"], "random") == 0)) {
@@ -84,6 +79,9 @@ void callback(char *thetopic, byte *payload, unsigned int length) {
       }
       mode = strdup(data["mode"]);
     }
+    on = data["on"];
+    if (!on)
+      justTurnedOff = true;
   }
 }
 
@@ -254,6 +252,7 @@ void loop() {
       ChangePalettePeriodically();
       static uint8_t startIndex = 0;
       startIndex = startIndex + 1; /* motion speed */
+      FillLEDsFromPaletteColors(startIndex);
     } else if (strcmp(mode, "color") == 0) {
       for (int i = 0; i < NUM_LEDS; i++) {
         leds[i].setRGB(r, g, b);
@@ -262,6 +261,7 @@ void loop() {
     }
     FastLED.show();
   } else {
+    Serial.println("turn it off");
     if (justTurnedOff) {
       justTurnedOff = false;
       FastLED.clear();

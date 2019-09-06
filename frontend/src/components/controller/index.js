@@ -111,6 +111,7 @@ class Controller extends React.Component {
     const on = e.currentTarget.value === 'on'
     this.setState({
       on: on,
+      mode: on ? null : this.state.mode,
       formValid: this.state.passwordValid && (!on || this.state.mode),
     })
   }
