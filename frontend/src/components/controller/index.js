@@ -10,7 +10,7 @@ const selectOptions = [
 ]
 
 const mqttControlTopic = 'rgb/control'
-const mqttErrorTopic = 'rgb/control'
+const mqttErrorTopic = 'rgb/error'
 
 const mqttOptions = {
   port: process.env.GATSBY_MQTT_PORT,
@@ -63,10 +63,6 @@ class Controller extends React.Component {
         if (!err) console.log('subscribed to error topic')
         else console.error(err)
       })
-      this.state.client.subscribe(mqttControlTopic, err => {
-        if (!err) console.log('subscribed to control topic')
-        else console.error(err)
-      })
     })
     this.state.client.on('message', (topic, message) => {
       // message is Buffer
@@ -105,12 +101,17 @@ class Controller extends React.Component {
   }
 
   validateForm() {
-    this.setState({ formValid: this.state.passwordValid })
+    this.setState({
+      formValid:
+        this.state.passwordValid && (!this.state.on || this.state.mode),
+    })
   }
 
   setPower = e => {
+    const on = e.currentTarget.value === 'on'
     this.setState({
-      on: e.currentTarget.value === 'on',
+      on: on,
+      formValid: this.state.passwordValid && (!on || this.state.mode),
     })
   }
 

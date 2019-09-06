@@ -31,7 +31,7 @@ char *mode;
 int r, g, b, a;
 
 void callback(char *thetopic, byte *payload, unsigned int length) {
-  if (strcmp(thetopic, controlTopic)) {
+  if (strcmp(thetopic, controlTopic) == 0) {
     DeserializationError err = deserializeJson(data, payload);
     // Test if parsing succeeds.
     if (err) {
@@ -42,42 +42,48 @@ void callback(char *thetopic, byte *payload, unsigned int length) {
       client.publish(errorTopic, errorMessageJsonStr.c_str());
       return;
     }
-    if (!strcmp(data["password"], servicePassword)) {
+    if (!strcmp(data["password"], servicePassword) == 0) {
       string errorMessageStr = "invalid password";
       Serial.println(errorMessageStr.c_str());
       string errorMessageJsonStr = "{\"error\":\"" + errorMessageStr + "\"}";
       client.publish(errorTopic, errorMessageJsonStr.c_str());
       return;
     }
-    if (!(strcmp(data["mode"], "color") || strcmp(data["mode"], "random"))) {
-      string errorMessageStr = "invalid mode";
-      Serial.println(errorMessageStr.c_str());
-      string errorMessageJsonStr = "{\"error\":\"" + errorMessageStr + "\"}";
-      client.publish(errorTopic, errorMessageJsonStr.c_str());
-      return;
+    if (data["on"]) {
+      on = data["on"];
+      if (!on)
+        justTurnedOff = true;
     }
-    if (strcmp(data["mode"], "color")) {
-      if (!(data["color"] && data["color"]["r"] && data["color"]["g"] &&
-            data["color"]["b"] && data["color"]["a"] &&
-            data["color"]["r"] >= 0 && data["color"]["r"] <= 255 &&
-            data["color"]["g"] >= 0 && data["color"]["g"] <= 255 &&
-            data["color"]["b"] >= 0 && data["color"]["b"] <= 255 &&
-            data["color"]["a"] >= 0 && data["color"]["a"] <= 255)) {
-        string errorMessageStr = "invalid rgba input";
+    if (data["mode"]) {
+      if (!(strcmp(data["mode"], "color") == 0 ||
+            strcmp(data["mode"], "random") == 0)) {
+        string errorMessageStr = "invalid mode";
         Serial.println(errorMessageStr.c_str());
         string errorMessageJsonStr = "{\"error\":\"" + errorMessageStr + "\"}";
         client.publish(errorTopic, errorMessageJsonStr.c_str());
         return;
       }
-      r = data["color"]["r"];
-      g = data["color"]["g"];
-      b = data["color"]["b"];
-      a = data["color"]["a"];
+      if (strcmp(data["mode"], "color") == 0) {
+        if (!(data["color"] && data["color"]["r"] && data["color"]["g"] &&
+              data["color"]["b"] && data["color"]["a"] &&
+              data["color"]["r"] >= 0 && data["color"]["r"] <= 255 &&
+              data["color"]["g"] >= 0 && data["color"]["g"] <= 255 &&
+              data["color"]["b"] >= 0 && data["color"]["b"] <= 255 &&
+              data["color"]["a"] >= 0 && data["color"]["a"] <= 255)) {
+          string errorMessageStr = "invalid rgba input";
+          Serial.println(errorMessageStr.c_str());
+          string errorMessageJsonStr =
+              "{\"error\":\"" + errorMessageStr + "\"}";
+          client.publish(errorTopic, errorMessageJsonStr.c_str());
+          return;
+        }
+        r = data["color"]["r"];
+        g = data["color"]["g"];
+        b = data["color"]["b"];
+        a = data["color"]["a"];
+      }
+      mode = strdup(data["mode"]);
     }
-    mode = strdup(data["mode"]);
-    on = data["on"];
-    if (!on)
-      justTurnedOff = true;
   }
 }
 
@@ -244,11 +250,11 @@ void loop() {
   client.loop();
   // then do the action
   if (on) {
-    if (strcmp(mode, "random")) {
+    if (strcmp(mode, "random") == 0) {
       ChangePalettePeriodically();
       static uint8_t startIndex = 0;
       startIndex = startIndex + 1; /* motion speed */
-    } else if (strcmp(mode, "color")) {
+    } else if (strcmp(mode, "color") == 0) {
       for (int i = 0; i < NUM_LEDS; i++) {
         leds[i].setRGB(r, g, b);
         leds[i].fadeLightBy(a);
