@@ -29,6 +29,7 @@ boolean on = false;
 boolean justTurnedOff = true;
 char *mode;
 int r, g, b, a;
+const int motionSpeed = 1;
 
 vector<string> modes{
     "color",
@@ -45,7 +46,7 @@ vector<string> modes{
     "america",
     "america-blend"};
 
-bool check_in_modes(const string &mode)
+boolean check_in_modes(const char* mode)
 {
   return find(modes.begin(), modes.end(), mode) != modes.end();
 }
@@ -294,7 +295,7 @@ void loop()
   // then do the action
   if (on)
   {
-    if (strcmp(mode, modes[0]) == 0)
+    if (strcmp(mode, modes[0].c_str()) == 0)
     {
       for (int i = 0; i < NUM_LEDS; i++)
       {
@@ -302,76 +303,100 @@ void loop()
         leds[i].fadeLightBy(a);
       }
     }
-    else if (strcmp(mode, modes[1]) == 0)
+    else if (strcmp(mode, modes[1].c_str()) == 0)
     {
       ChangePalettePeriodically();
-      FillLEDsFromPaletteColors(1);
+      static uint8_t startIndex = 0;
+      startIndex = startIndex + motionSpeed;
+      FillLEDsFromPaletteColors(startIndex);
     }
-    else if (strcmp(mode, modes[2]) == 0)
+    else if (strcmp(mode, modes[2].c_str()) == 0)
     {
       currentPalette = RainbowColors_p;
       currentBlending = LINEARBLEND;
-      FillLEDsFromPaletteColors(1);
+      static uint8_t startIndex = 0;
+      startIndex = startIndex + motionSpeed;
+      FillLEDsFromPaletteColors(startIndex);
     }
-    else if (strcmp(mode, modes[3]) == 0)
+    else if (strcmp(mode, modes[3].c_str()) == 0)
     {
       currentPalette = RainbowStripeColors_p;
       currentBlending = NOBLEND;
-      FillLEDsFromPaletteColors(1);
+      static uint8_t startIndex = 0;
+      startIndex = startIndex + motionSpeed;
+      FillLEDsFromPaletteColors(startIndex);
     }
-    else if (strcmp(mode, modes[4]) == 0)
+    else if (strcmp(mode, modes[4].c_str()) == 0)
     {
       currentPalette = RainbowStripeColors_p;
       currentBlending = LINEARBLEND;
-      FillLEDsFromPaletteColors(1);
+      static uint8_t startIndex = 0;
+      startIndex = startIndex + motionSpeed;
+      FillLEDsFromPaletteColors(startIndex);
     }
-    else if (strcmp(mode, modes[5]) == 0)
+    else if (strcmp(mode, modes[5].c_str()) == 0)
     {
       SetupPurpleAndGreenPalette();
       currentBlending = LINEARBLEND;
-      FillLEDsFromPaletteColors(1);
+      static uint8_t startIndex = 0;
+      startIndex = startIndex + motionSpeed;
+      FillLEDsFromPaletteColors(startIndex);
     }
-    else if (strcmp(mode, modes[6]) == 0)
+    else if (strcmp(mode, modes[6].c_str()) == 0)
     {
       SetupTotallyRandomPalette();
       currentBlending = LINEARBLEND;
-      FillLEDsFromPaletteColors(1);
+      static uint8_t startIndex = 0;
+      startIndex = startIndex + motionSpeed;
+      FillLEDsFromPaletteColors(startIndex);
     }
-    else if (strcmp(mode, modes[7]) == 0)
+    else if (strcmp(mode, modes[7].c_str()) == 0)
     {
       SetupBlackAndWhiteStripedPalette();
       currentBlending = NOBLEND;
-      FillLEDsFromPaletteColors(1);
+      static uint8_t startIndex = 0;
+      startIndex = startIndex + motionSpeed;
+      FillLEDsFromPaletteColors(startIndex);
     }
-    else if (strcmp(mode, modes[8]) == 0)
+    else if (strcmp(mode, modes[8].c_str()) == 0)
     {
       SetupBlackAndWhiteStripedPalette();
       currentBlending = LINEARBLEND;
-      FillLEDsFromPaletteColors(1);
+      static uint8_t startIndex = 0;
+      startIndex = startIndex + motionSpeed;
+      FillLEDsFromPaletteColors(startIndex);
     }
-    else if (strcmp(mode, modes[9]) == 0)
+    else if (strcmp(mode, modes[9].c_str()) == 0)
     {
       currentPalette = CloudColors_p;
       currentBlending = LINEARBLEND;
-      FillLEDsFromPaletteColors(1);
+      static uint8_t startIndex = 0;
+      startIndex = startIndex + motionSpeed;
+      FillLEDsFromPaletteColors(startIndex);
     }
-    else if (strcmp(mode, modes[10]) == 0)
+    else if (strcmp(mode, modes[10].c_str()) == 0)
     {
       currentPalette = PartyColors_p;
       currentBlending = LINEARBLEND;
-      FillLEDsFromPaletteColors(1);
+      static uint8_t startIndex = 0;
+      startIndex = startIndex + motionSpeed;
+      FillLEDsFromPaletteColors(startIndex);
     }
-    else if (strcmp(mode, modes[11]) == 0)
+    else if (strcmp(mode, modes[11].c_str()) == 0)
     {
       currentPalette = myRedWhiteBluePalette_p;
       currentBlending = NOBLEND;
-      FillLEDsFromPaletteColors(1);
+      static uint8_t startIndex = 0;
+      startIndex = startIndex + motionSpeed;
+      FillLEDsFromPaletteColors(startIndex);
     }
-    else if (strcmp(mode, modes[12]) == 0)
+    else if (strcmp(mode, modes[12].c_str()) == 0)
     {
       currentPalette = myRedWhiteBluePalette_p;
       currentBlending = LINEARBLEND;
-      FillLEDsFromPaletteColors(1);
+      static uint8_t startIndex = 0;
+      startIndex = startIndex + motionSpeed;
+      FillLEDsFromPaletteColors(startIndex);
     }
     FastLED.show();
   }
