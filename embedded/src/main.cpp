@@ -31,19 +31,8 @@ char *mode;
 int r, g, b, a, speed = 1;
 double brightnessDelta = 0.0, brightness = 0.0, fadePeriod = 0.0;
 
-vector<string> modes{"c",
-                     "p",
-                     "r",
-                     "rs",
-                     "rsb",
-                     "pg",
-                     "ra",
-                     "bw",
-                     "bwb",
-                     "cl",
-                     "pa",
-                     "a",
-                     "ab"};
+vector<string> modes{"c",  "p",   "r",  "rs", "rsb", "pg", "ra",
+                     "bw", "bwb", "cl", "pa", "a",   "ab"};
 
 boolean check_in_modes(const char *mode) {
   return find(modes.begin(), modes.end(), mode) != modes.end();
@@ -71,11 +60,10 @@ void callback(char *thetopic, byte *payload, unsigned int length) {
     }
     if (data["m"]) {
       if (strcmp(data["m"], "c") == 0) {
-        if (!(data["c"] && data["c"]["r"] >= 0 &&
-              data["c"]["r"] <= 255 && data["c"]["g"] >= 0 &&
-              data["c"]["g"] <= 255 && data["c"]["b"] >= 0 &&
-              data["c"]["b"] <= 255 && data["c"]["a"] >= 0 &&
-              data["c"]["a"] <= 255)) {
+        if (!(data["c"] && data["c"]["r"] >= 0 && data["c"]["r"] <= 255 &&
+              data["c"]["g"] >= 0 && data["c"]["g"] <= 255 &&
+              data["c"]["b"] >= 0 && data["c"]["b"] <= 255 &&
+              data["c"]["a"] >= 0 && data["c"]["a"] <= 255)) {
           string errorMessageStr = "invalid rgba input";
           Serial.println(errorMessageStr.c_str());
           string errorMessageJsonStr =
