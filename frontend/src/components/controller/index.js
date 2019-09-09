@@ -1,8 +1,11 @@
 import React from 'react'
 import { SketchPicker } from 'react-color'
 import Select from 'react-select'
-import { connect, createClient } from 'mqtt'
+import { connect } from 'mqtt'
 import { ToastContainer, toast } from 'react-toastify'
+import Slider from 'rc-slider'
+import Tooltip from 'rc-tooltip'
+import 'rc-slider/assets/index.css'
 import 'react-toastify/dist/ReactToastify.min.css'
 import './style.scss'
 
@@ -18,8 +21,8 @@ const selectOptions = [
   { value: 'black-white-blend', label: 'Black White Blend' },
   { value: 'cloud', label: 'Cloud' },
   { value: 'party', label: 'Party' },
-  { value: 'america', label: '\'murica' },
-  { value: 'america-blend', label: '\'murica 2.0' },
+  { value: 'america', label: "'murica" },
+  { value: 'america-blend', label: "'murica 2.0" },
 ]
 
 const mqttControlTopic = 'rgb/control'
@@ -41,18 +44,44 @@ const mqttOptions = {
   encoding: 'utf8',
 }
 
+const maxSpeed = 20
+const defaultSpeed = 1
+const maxPulse = 5
+const defaultPulse = 0
+const stepSize = 0.1
+const Handle = Slider.Handle
+
+const handle = props => {
+  const { value, dragging, index, ...restProps } = props
+  return (
+    <Tooltip
+      prefixCls="rc-slider-tooltip"
+      overlay={value}
+      visible={dragging}
+      placement="top"
+      key={index}
+    >
+      <Handle value={value} {...restProps} />
+    </Tooltip>
+  )
+}
+
+const defaultColor = {
+  r: 0,
+  g: 255,
+  b: 233,
+  a: 100,
+}
+
 class Controller extends React.Component {
   constructor(props) {
     super(props)
     this.state = {
       on: false,
       mode: null,
-      color: {
-        r: 129,
-        g: 71,
-        b: 196,
-        a: 73,
-      },
+      color: Object.assign({}, defaultColor),
+      speed: defaultSpeed,
+      pulse: defaultPulse,
       password: '',
       formErrors: { password: '' },
       passwordValid: false,
@@ -144,16 +173,52 @@ class Controller extends React.Component {
     console.log(`Option selected:`, selectedOption.value)
   }
 
-  colorSelect() {
-    if (this.state.mode === selectOptions[0].value) {
-      return (
-        <div className="mt-4">
-          <SketchPicker
-            color={this.state.color}
-            onChangeComplete={this.handleColorChange}
-          />
-        </div>
-      )
+  handleSpeedChange = speed => {
+    this.setState({ speed })
+  }
+
+  handlePulseChange = pulse => {
+    this.setState({ pulse })
+  }
+
+  paramsSelect() {
+    if (this.state.mode) {
+      if (this.state.mode === selectOptions[0].value) {
+        return (
+          <div>
+            <div className="mt-4">
+              <SketchPicker
+                color={this.state.color}
+                onChangeComplete={this.handleColorChange}
+              />
+            </div>
+            <div className="mt-4">
+              <p>Pulse period (s)</p>
+              <Slider
+                min={0}
+                max={maxPulse}
+                defaultValue={defaultPulse}
+                step={stepSize}
+                handle={handle}
+                onAfterChange={this.handlePulseChange}
+              />
+            </div>
+          </div>
+        )
+      } else {
+        return (
+          <div className="mt-4">
+            <p>Speed</p>
+            <Slider
+              min={0}
+              max={maxSpeed}
+              defaultValue={defaultSpeed}
+              handle={handle}
+              onAfterChange={this.handleSpeedChange}
+            />
+          </div>
+        )
+      }
     } else {
       return <div></div>
     }
@@ -168,7 +233,7 @@ class Controller extends React.Component {
             onChange={this.handleModeSelect}
             options={selectOptions}
           />
-          {this.colorSelect()}
+          {this.paramsSelect()}
         </div>
       )
     } else {
@@ -188,6 +253,8 @@ class Controller extends React.Component {
         a: Math.round((1 - this.state.color.a) * 255),
       },
       password: this.state.password,
+      speed: this.state.speed,
+      pulse: this.state.pulse,
     })
     console.log(`send ${command}`)
     this.state.client.publish(mqttControlTopic, command, {}, err => {
