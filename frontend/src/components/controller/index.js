@@ -10,19 +10,19 @@ import 'react-toastify/dist/ReactToastify.min.css'
 import './style.scss'
 
 const selectOptions = [
-  { value: 'color', label: 'Color' },
-  { value: 'changePeriodically', label: 'Periodic' },
-  { value: 'rainbow', label: 'Rainbow' },
-  { value: 'rainbowStripes', label: 'Rainbow Stripes' },
-  { value: 'rainbowStripesBlend', label: 'Rainbow Stripes Blend' },
-  { value: 'purpleGreen', label: 'Purple Green' },
-  { value: 'random', label: 'Random' },
-  { value: 'blackWhite', label: 'Black White' },
-  { value: 'blackWhiteBlend', label: 'Black White Blend' },
-  { value: 'cloud', label: 'Cloud' },
-  { value: 'party', label: 'Party' },
-  { value: 'america', label: "'murica" },
-  { value: 'americaBlend', label: "'murica 2.0" },
+  { value: 'c', label: 'Color' },
+  { value: 'p', label: 'Periodic' },
+  { value: 'r', label: 'Rainbow' },
+  { value: 'rs', label: 'Rainbow Stripes' },
+  { value: 'rsb', label: 'Rainbow Stripes Blend' },
+  { value: 'pg', label: 'Purple Green' },
+  { value: 'ra', label: 'Random' },
+  { value: 'bw', label: 'Black White' },
+  { value: 'bwb', label: 'Black White Blend' },
+  { value: 'cl', label: 'Cloud' },
+  { value: 'pa', label: 'Party' },
+  { value: 'a', label: "'murica" },
+  { value: 'ab', label: "'murica 2.0" },
 ]
 
 const mqttControlTopic = 'rgb/control'
@@ -70,7 +70,7 @@ const defaultColor = {
   r: 0,
   g: 255,
   b: 233,
-  a: 100,
+  a: 1,
 }
 
 class Controller extends React.Component {
@@ -243,18 +243,19 @@ class Controller extends React.Component {
 
   onSubmit = evt => {
     evt.preventDefault()
+    console.log(this.state.color.a)
     const command = JSON.stringify({
-      on: this.state.on,
-      mode: this.state.mode,
-      color: {
+      o: this.state.on,
+      m: this.state.mode,
+      c: {
         r: this.state.color.r,
         g: this.state.color.g,
         b: this.state.color.b,
         a: Math.round((1 - this.state.color.a) * 255),
       },
-      password: this.state.password,
-      speed: this.state.speed,
-      pulse: this.state.pulse,
+      p: this.state.password,
+      s: this.state.speed,
+      f: this.state.pulse,
     })
     console.log(`send ${command}`)
     this.state.client.publish(mqttControlTopic, command, {}, err => {

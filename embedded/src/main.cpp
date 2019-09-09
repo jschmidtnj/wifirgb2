@@ -31,27 +31,26 @@ char *mode;
 int r, g, b, a, speed = 1;
 double brightnessDelta = 0.0, brightness = 0.0, fadePeriod = 0.0;
 
-vector<string> modes{"color",
-                     "changePeriodically",
-                     "rainbow",
-                     "rainbowStripes",
-                     "rainbowStripesBlend",
-                     "purpleGreen",
-                     "random",
-                     "blackWhite",
-                     "blackWhiteBlend",
-                     "cloud",
-                     "party",
-                     "america",
-                     "americaBlend"};
+vector<string> modes{"c",
+                     "p",
+                     "r",
+                     "rs",
+                     "rsb",
+                     "pg",
+                     "ra",
+                     "bw",
+                     "bwb",
+                     "cl",
+                     "pa",
+                     "a",
+                     "ab"};
 
 boolean check_in_modes(const char *mode) {
   return find(modes.begin(), modes.end(), mode) != modes.end();
 }
 
 void callback(char *thetopic, byte *payload, unsigned int length) {
-  Serial.println("callback");
-  Serial.println(thetopic);
+  // Serial.println(thetopic);
   if (strcmp(thetopic, controlTopic) == 0) {
     DeserializationError err = deserializeJson(data, payload);
     // Test if parsing succeeds.
@@ -63,20 +62,20 @@ void callback(char *thetopic, byte *payload, unsigned int length) {
       client.publish(errorTopic, errorMessageJsonStr.c_str());
       return;
     }
-    if (!strcmp(data["password"], servicePassword) == 0) {
+    if (!strcmp(data["p"], servicePassword) == 0) {
       string errorMessageStr = "invalid password";
       Serial.println(errorMessageStr.c_str());
       string errorMessageJsonStr = "{\"error\":\"" + errorMessageStr + "\"}";
       client.publish(errorTopic, errorMessageJsonStr.c_str());
       return;
     }
-    if (data["mode"]) {
-      if (strcmp(data["mode"], "color") == 0) {
-        if (!(data["color"] && data["color"]["r"] >= 0 &&
-              data["color"]["r"] <= 255 && data["color"]["g"] >= 0 &&
-              data["color"]["g"] <= 255 && data["color"]["b"] >= 0 &&
-              data["color"]["b"] <= 255 && data["color"]["a"] >= 0 &&
-              data["color"]["a"] <= 255)) {
+    if (data["m"]) {
+      if (strcmp(data["m"], "c") == 0) {
+        if (!(data["c"] && data["c"]["r"] >= 0 &&
+              data["c"]["r"] <= 255 && data["c"]["g"] >= 0 &&
+              data["c"]["g"] <= 255 && data["c"]["b"] >= 0 &&
+              data["c"]["b"] <= 255 && data["c"]["a"] >= 0 &&
+              data["c"]["a"] <= 255)) {
           string errorMessageStr = "invalid rgba input";
           Serial.println(errorMessageStr.c_str());
           string errorMessageJsonStr =
@@ -84,23 +83,23 @@ void callback(char *thetopic, byte *payload, unsigned int length) {
           client.publish(errorTopic, errorMessageJsonStr.c_str());
           return;
         }
-        r = data["color"]["r"];
-        g = data["color"]["g"];
-        b = data["color"]["b"];
-        a = data["color"]["a"];
-      } else if (!check_in_modes(data["mode"])) {
+        r = data["c"]["r"];
+        g = data["c"]["g"];
+        b = data["c"]["b"];
+        a = data["c"]["a"];
+      } else if (!check_in_modes(data["m"])) {
         string errorMessageStr = "invalid mode";
         Serial.println(errorMessageStr.c_str());
         string errorMessageJsonStr = "{\"error\":\"" + errorMessageStr + "\"}";
         client.publish(errorTopic, errorMessageJsonStr.c_str());
         return;
       }
-      mode = strdup(data["mode"]);
+      mode = strdup(data["m"]);
     }
-    speed = data["speed"];
-    fadePeriod = data["pulse"];
-    // brightnessDelta = a / (double)(fadePeriod * 1000 / UPDATES_PER_SECOND);
-    on = data["on"];
+    speed = data["s"];
+    fadePeriod = data["f"];
+    brightnessDelta = a / (double)(fadePeriod * 1000 / UPDATES_PER_SECOND);
+    on = data["o"];
     if (!on)
       justTurnedOff = true;
   }
@@ -265,13 +264,11 @@ void loop() {
       if (fadePeriod == 0.0) {
         brightness = (double)a;
       } else {
-        /*
         if (brightness + brightnessDelta < (double)a ||
             brightness + brightnessDelta > 255.0) {
           brightnessDelta = -brightnessDelta;
         }
         brightness = brightness + brightnessDelta;
-        */
       }
       for (int i = 0; i < NUM_LEDS; i++) {
         leds[i].setRGB(r, g, b);
@@ -351,7 +348,6 @@ void loop() {
     }
     FastLED.show();
   } else {
-    // Serial.println("turn it off");
     if (justTurnedOff) {
       justTurnedOff = false;
       FastLED.clear();
