@@ -11,18 +11,18 @@ import './style.scss'
 
 const selectOptions = [
   { value: 'color', label: 'Color' },
-  { value: 'change-periodically', label: 'Periodic' },
+  { value: 'changePeriodically', label: 'Periodic' },
   { value: 'rainbow', label: 'Rainbow' },
-  { value: 'rainbow-stripes', label: 'Rainbow Stripes' },
-  { value: 'rainbow-stripes-blend', label: 'Rainbow Stripes Blend' },
-  { value: 'purple-green', label: 'Purple Green' },
+  { value: 'rainbowStripes', label: 'Rainbow Stripes' },
+  { value: 'rainbowStripesBlend', label: 'Rainbow Stripes Blend' },
+  { value: 'purpleGreen', label: 'Purple Green' },
   { value: 'random', label: 'Random' },
-  { value: 'black-white', label: 'Black White' },
-  { value: 'black-white-blend', label: 'Black White Blend' },
+  { value: 'blackWhite', label: 'Black White' },
+  { value: 'blackWhiteBlend', label: 'Black White Blend' },
   { value: 'cloud', label: 'Cloud' },
   { value: 'party', label: 'Party' },
   { value: 'america', label: "'murica" },
-  { value: 'america-blend', label: "'murica 2.0" },
+  { value: 'americaBlend', label: "'murica 2.0" },
 ]
 
 const mqttControlTopic = 'rgb/control'

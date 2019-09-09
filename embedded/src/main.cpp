@@ -29,27 +29,29 @@ boolean on = false;
 boolean justTurnedOff = true;
 char *mode;
 int r, g, b, a, speed = 1;
-double brightnessDelta, brightness = 0.0, fadePeriod = 0.0;
+double brightnessDelta = 0.0, brightness = 0.0, fadePeriod = 0.0;
 
 vector<string> modes{"color",
-                     "change-periodically",
+                     "changePeriodically",
                      "rainbow",
-                     "rainbow-stripes",
-                     "rainbow-stripes-blend",
-                     "purple-green",
+                     "rainbowStripes",
+                     "rainbowStripesBlend",
+                     "purpleGreen",
                      "random",
-                     "black-white",
-                     "black-white-blend",
+                     "blackWhite",
+                     "blackWhiteBlend",
                      "cloud",
                      "party",
                      "america",
-                     "america-blend"};
+                     "americaBlend"};
 
 boolean check_in_modes(const char *mode) {
   return find(modes.begin(), modes.end(), mode) != modes.end();
 }
 
 void callback(char *thetopic, byte *payload, unsigned int length) {
+  Serial.println("callback");
+  Serial.println(thetopic);
   if (strcmp(thetopic, controlTopic) == 0) {
     DeserializationError err = deserializeJson(data, payload);
     // Test if parsing succeeds.
@@ -97,7 +99,7 @@ void callback(char *thetopic, byte *payload, unsigned int length) {
     }
     speed = data["speed"];
     fadePeriod = data["pulse"];
-    brightnessDelta = a / (double)(fadePeriod * 1000 / UPDATES_PER_SECOND);
+    // brightnessDelta = a / (double)(fadePeriod * 1000 / UPDATES_PER_SECOND);
     on = data["on"];
     if (!on)
       justTurnedOff = true;
@@ -263,11 +265,13 @@ void loop() {
       if (fadePeriod == 0.0) {
         brightness = (double)a;
       } else {
+        /*
         if (brightness + brightnessDelta < (double)a ||
             brightness + brightnessDelta > 255.0) {
           brightnessDelta = -brightnessDelta;
         }
         brightness = brightness + brightnessDelta;
+        */
       }
       for (int i = 0; i < NUM_LEDS; i++) {
         leds[i].setRGB(r, g, b);
@@ -347,7 +351,7 @@ void loop() {
     }
     FastLED.show();
   } else {
-    Serial.println("turn it off");
+    // Serial.println("turn it off");
     if (justTurnedOff) {
       justTurnedOff = false;
       FastLED.clear();
