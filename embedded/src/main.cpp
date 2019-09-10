@@ -4,6 +4,7 @@
 #include <FastLED.h>
 #include <PubSubClient.h>
 #include <config.h>
+#include <i2s.h>
 
 #define BAUD_RATE 115200
 #define LED_PIN 0
@@ -21,18 +22,21 @@ CRGB leds[NUM_LEDS];
 CRGBPalette16 currentPalette;
 TBlendType currentBlending;
 extern CRGBPalette16 myRedWhiteBluePalette;
-extern const TProgmemPalette16 myRedWhiteBluePalette_p PROGMEM;
+extern const TProgmemPalette16 myRedWhiteBluePaletteP PROGMEM;
 
 WiFiClient espClient;
 PubSubClient client(espClient);
 boolean on = false;
 boolean justTurnedOff = true;
 char *mode;
-int r, g, b, a, speed = 1;
-double brightnessDelta = 0.0, brightness = 0.0, fadePeriod = 0.0;
+int r, g, b, a, speed = 1, musicWheelPosition = 255, musicDecay = 0,
+                musicDecayCheck = 0, musicWheelSpeed = 3;
+uint8_t brightness = 255; // brightness of given mode
+long musicPreReact = 0.0f, musicReact = 0.0f;
+double brightnessDelta = 0.0, colorBrightness = 0.0, fadePeriod = 0.0;
 
-vector<string> modes{"c",  "p",   "r",  "rs", "rsb", "pg", "ra",
-                     "bw", "bwb", "cl", "pa", "a",   "ab"};
+vector<string> modes{"c",  "m",  "p",   "r",  "rs", "rsb", "pg",
+                     "ra", "bw", "bwb", "cl", "pa", "a",   "ab"};
 
 boolean check_in_modes(const char *mode) {
   return find(modes.begin(), modes.end(), mode) != modes.end();
@@ -81,6 +85,8 @@ void callback(char *thetopic, byte *payload, unsigned int length) {
         string errorMessageJsonStr = "{\"error\":\"" + errorMessageStr + "\"}";
         client.publish(errorTopic, errorMessageJsonStr.c_str());
         return;
+      } else {
+        brightness = (uint8_t)data["b"];
       }
       mode = strdup(data["m"]);
     }
@@ -129,12 +135,14 @@ void setup() {
   currentPalette = RainbowColors_p;
   currentBlending = LINEARBLEND;
 
+  i2s_rxtx_begin(true, false);
+  i2s_set_rate(11025);
+
   WiFi.begin(ssid, wifiPassword);
   connect();
 }
 
 void FillLEDsFromPaletteColors(uint8_t colorIndex) {
-  uint8_t brightness = 255;
   for (int i = 0; i < NUM_LEDS; i++) {
     leds[i] = ColorFromPalette(currentPalette, colorIndex, brightness,
                                currentBlending);
@@ -186,7 +194,7 @@ void SetupPurpleAndGreenPalette() {
 // which is stored in PROGMEM (flash), which is almost always more
 // plentiful than RAM.  A static PROGMEM palette like this
 // takes up 64 bytes of flash.
-const TProgmemPalette16 myRedWhiteBluePalette_p PROGMEM = {
+const TProgmemPalette16 myRedWhiteBluePaletteP PROGMEM = {
     CRGB::Red,
     CRGB::Gray, // 'white' is too bright compared to red and blue
     CRGB::Blue,  CRGB::Black, CRGB::Red,   CRGB::Gray, CRGB::Blue,
@@ -232,13 +240,33 @@ void ChangePalettePeriodically() {
     currentBlending = LINEARBLEND;
   }
   if (secondHand == 50) {
-    currentPalette = myRedWhiteBluePalette_p;
+    currentPalette = myRedWhiteBluePaletteP;
     currentBlending = NOBLEND;
   }
   if (secondHand == 55) {
-    currentPalette = myRedWhiteBluePalette_p;
+    currentPalette = myRedWhiteBluePaletteP;
     currentBlending = LINEARBLEND;
   }
+}
+
+// FUNCTION TO GENERATE COLOR BASED ON VIRTUAL WHEEL
+// https://github.com/NeverPlayLegit/Rainbow-Fader-FastLED/blob/master/rainbow.ino
+CRGB music_scroll(int pos) {
+  CRGB color(0, 0, 0);
+  if (pos < 85) {
+    color.g = 0;
+    color.r = ((float)pos / 85.0f) * 255.0f;
+    color.b = 255 - color.r;
+  } else if (pos < 170) {
+    color.g = ((float)(pos - 85) / 85.0f) * 255.0f;
+    color.r = 255 - color.g;
+    color.b = 0;
+  } else if (pos < 256) {
+    color.b = ((float)(pos - 170) / 85.0f) * 255.0f;
+    color.g = 255 - color.b;
+    color.r = 1;
+  }
+  return color;
 }
 
 void loop() {
@@ -250,85 +278,116 @@ void loop() {
   if (on) {
     if (strcmp(mode, modes[0].c_str()) == 0) {
       if (fadePeriod == 0.0) {
-        brightness = (double)a;
+        colorBrightness = (double)a;
       } else {
-        if (brightness + brightnessDelta < (double)a ||
-            brightness + brightnessDelta > 255.0) {
+        if (colorBrightness + brightnessDelta < (double)a ||
+            colorBrightness + brightnessDelta > 255.0) {
           brightnessDelta = -brightnessDelta;
         }
-        brightness = brightness + brightnessDelta;
+        colorBrightness = colorBrightness + brightnessDelta;
       }
       for (int i = 0; i < NUM_LEDS; i++) {
         leds[i].setRGB(r, g, b);
-        leds[i].fadeLightBy((int)brightness);
+        leds[i].fadeLightBy((uint8_t)colorBrightness);
       }
     } else if (strcmp(mode, modes[1].c_str()) == 0) {
+      int16_t left, right;
+      i2s_read_sample(&left, &right, true);
+      int audioSample = (int)left;
+      if (audioSample > 0) {
+        musicPreReact = ((long)NUM_LEDS * (long)audioSample) /
+                        1023L; // TRANSLATE AUDIO LEVEL TO NUMBER OF LEDs
+        if (musicPreReact > musicReact) // ONLY ADJUST LEVEL OF LED IF LEVEL
+                                        // HIGHER THAN CURRENT LEVEL
+          musicReact = musicPreReact;
+      }
+      for (int i = NUM_LEDS - 1; i >= 0; i--) {
+        if (i < musicReact) {
+          leds[i] = music_scroll((i * 256 / 50 + musicWheelPosition) % 256);
+          leds[i].fadeLightBy(brightness);
+        } else {
+          leds[i] = CRGB(0, 0, 0);
+        }
+      }
+      musicWheelPosition =
+          musicWheelPosition - musicWheelSpeed; // SPEED OF COLOR WHEEL
+      if (musicWheelPosition < 0)               // RESET COLOR WHEEL
+        musicWheelPosition = 255;
+      // REMOVE LEDs
+      musicDecayCheck++;
+      if (musicDecayCheck > musicDecay) // how many ms before one light decay
+      {
+        musicDecayCheck = 0;
+        if (musicReact > 0)
+          musicReact--;
+      }
+    } else if (strcmp(mode, modes[2].c_str()) == 0) {
       ChangePalettePeriodically();
       static uint8_t startIndex = 0;
       startIndex = startIndex + speed;
       FillLEDsFromPaletteColors(startIndex);
-    } else if (strcmp(mode, modes[2].c_str()) == 0) {
+    } else if (strcmp(mode, modes[3].c_str()) == 0) {
       currentPalette = RainbowColors_p;
       currentBlending = LINEARBLEND;
       static uint8_t startIndex = 0;
       startIndex = startIndex + speed;
       FillLEDsFromPaletteColors(startIndex);
-    } else if (strcmp(mode, modes[3].c_str()) == 0) {
+    } else if (strcmp(mode, modes[4].c_str()) == 0) {
       currentPalette = RainbowStripeColors_p;
       currentBlending = NOBLEND;
       static uint8_t startIndex = 0;
       startIndex = startIndex + speed;
       FillLEDsFromPaletteColors(startIndex);
-    } else if (strcmp(mode, modes[4].c_str()) == 0) {
-      currentPalette = RainbowStripeColors_p;
-      currentBlending = LINEARBLEND;
-      static uint8_t startIndex = 0;
-      startIndex = startIndex + speed;
-      FillLEDsFromPaletteColors(startIndex);
     } else if (strcmp(mode, modes[5].c_str()) == 0) {
-      SetupPurpleAndGreenPalette();
+      currentPalette = RainbowStripeColors_p;
       currentBlending = LINEARBLEND;
       static uint8_t startIndex = 0;
       startIndex = startIndex + speed;
       FillLEDsFromPaletteColors(startIndex);
     } else if (strcmp(mode, modes[6].c_str()) == 0) {
-      SetupTotallyRandomPalette();
+      SetupPurpleAndGreenPalette();
       currentBlending = LINEARBLEND;
       static uint8_t startIndex = 0;
       startIndex = startIndex + speed;
       FillLEDsFromPaletteColors(startIndex);
     } else if (strcmp(mode, modes[7].c_str()) == 0) {
-      SetupBlackAndWhiteStripedPalette();
-      currentBlending = NOBLEND;
+      SetupTotallyRandomPalette();
+      currentBlending = LINEARBLEND;
       static uint8_t startIndex = 0;
       startIndex = startIndex + speed;
       FillLEDsFromPaletteColors(startIndex);
     } else if (strcmp(mode, modes[8].c_str()) == 0) {
       SetupBlackAndWhiteStripedPalette();
-      currentBlending = LINEARBLEND;
+      currentBlending = NOBLEND;
       static uint8_t startIndex = 0;
       startIndex = startIndex + speed;
       FillLEDsFromPaletteColors(startIndex);
     } else if (strcmp(mode, modes[9].c_str()) == 0) {
-      currentPalette = CloudColors_p;
+      SetupBlackAndWhiteStripedPalette();
       currentBlending = LINEARBLEND;
       static uint8_t startIndex = 0;
       startIndex = startIndex + speed;
       FillLEDsFromPaletteColors(startIndex);
     } else if (strcmp(mode, modes[10].c_str()) == 0) {
-      currentPalette = PartyColors_p;
+      currentPalette = CloudColors_p;
       currentBlending = LINEARBLEND;
       static uint8_t startIndex = 0;
       startIndex = startIndex + speed;
       FillLEDsFromPaletteColors(startIndex);
     } else if (strcmp(mode, modes[11].c_str()) == 0) {
-      currentPalette = myRedWhiteBluePalette_p;
-      currentBlending = NOBLEND;
+      currentPalette = PartyColors_p;
+      currentBlending = LINEARBLEND;
       static uint8_t startIndex = 0;
       startIndex = startIndex + speed;
       FillLEDsFromPaletteColors(startIndex);
     } else if (strcmp(mode, modes[12].c_str()) == 0) {
-      currentPalette = myRedWhiteBluePalette_p;
+      currentPalette = myRedWhiteBluePaletteP;
+      currentBlending = NOBLEND;
+      static uint8_t startIndex = 0;
+      startIndex = startIndex + speed;
+      FillLEDsFromPaletteColors(startIndex);
+    } else if (strcmp(mode, modes[13].c_str()) == 0) {
+      currentPalette = myRedWhiteBluePaletteP;
       currentBlending = LINEARBLEND;
       static uint8_t startIndex = 0;
       startIndex = startIndex + speed;

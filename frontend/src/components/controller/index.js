@@ -11,6 +11,7 @@ import './style.scss'
 
 const selectOptions = [
   { value: 'c', label: 'Color' },
+  { value: 'm', label: 'Music' },
   { value: 'p', label: 'Periodic' },
   { value: 'r', label: 'Rainbow' },
   { value: 'rs', label: 'Rainbow Stripes' },
@@ -48,6 +49,8 @@ const maxSpeed = 20
 const defaultSpeed = 1
 const maxPulse = 5
 const defaultPulse = 0
+const maxBrightness = 255
+const defaultBrightness = 255
 const stepSize = 0.1
 const Handle = Slider.Handle
 
@@ -87,6 +90,7 @@ class Controller extends React.Component {
       passwordValid: false,
       formValid: false,
       client: null,
+      brightness: 255,
     }
   }
 
@@ -181,6 +185,10 @@ class Controller extends React.Component {
     this.setState({ pulse })
   }
 
+  handleBrightnessChange = brightness => {
+    this.setState({ brightness })
+  }
+
   paramsSelect() {
     if (this.state.mode) {
       if (this.state.mode === selectOptions[0].value) {
@@ -206,7 +214,7 @@ class Controller extends React.Component {
           </div>
         )
       } else {
-        return (
+        const speedDiv = (
           <div className="mt-4">
             <p>Speed</p>
             <Slider
@@ -218,6 +226,26 @@ class Controller extends React.Component {
             />
           </div>
         )
+        const brightnessDiv = (
+          <div className="mt-4">
+            <p>Brightness</p>
+            <Slider
+              min={0}
+              max={maxBrightness}
+              defaultValue={defaultBrightness}
+              handle={handle}
+              onAfterChange={this.handleBrightnessChange}
+            />
+          </div>
+        )
+        if (this.state.mode === selectOptions[1].value) return brightnessDiv
+        else
+          return (
+            <div>
+              {speedDiv}
+              {brightnessDiv}
+            </div>
+          )
       }
     } else {
       return <div></div>
@@ -256,6 +284,7 @@ class Controller extends React.Component {
       p: this.state.password,
       s: this.state.speed,
       f: this.state.pulse,
+      b: this.state.brightness,
     })
     console.log(`send ${command}`)
     this.state.client.publish(mqttControlTopic, command, {}, err => {
