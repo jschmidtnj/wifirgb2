@@ -24,6 +24,7 @@ const selectOptions = [
   { value: 'pa', label: 'Party' },
   { value: 'a', label: "'murica" },
   { value: 'ab', label: "'murica 2.0" },
+  { value: 'w', label: 'Warm colors' },
 ]
 
 const mqttControlTopic = 'rgb/control'
