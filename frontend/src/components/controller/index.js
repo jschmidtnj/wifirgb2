@@ -290,7 +290,6 @@ class Controller extends React.Component {
     console.log(`send ${command}`)
     this.state.client.publish(mqttControlTopic, command, {}, err => {
       if (err) toast.error(`got error submitting: ${JSON.stringify(err)}`)
-      else toast.success('sent command')
     })
   }
 
