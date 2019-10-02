@@ -11,7 +11,6 @@
 
 #define BAUD_RATE 115200
 #define LED_PIN 0
-#define NUM_LEDS 300
 #define BRIGHTNESS 64
 #define LED_TYPE WS2811
 #define COLOR_ORDER GRB
@@ -34,7 +33,7 @@ using namespace std;
 
 StaticJsonDocument<200> data;
 
-CRGB leds[NUM_LEDS];
+CRGB leds[num_leds];
 CRGBPalette16 currentPalette;
 TBlendType currentBlending;
 extern CRGBPalette16 myRedWhiteBluePalette;
@@ -320,7 +319,7 @@ void setup() {
   slc_init();
   i2s_init();
 
-  FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS)
+  FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, num_leds)
       .setCorrection(TypicalLEDStrip);
   FastLED.setBrightness(BRIGHTNESS);
   currentPalette = RainbowColors_p;
@@ -331,7 +330,7 @@ void setup() {
 }
 
 void FillLEDsFromPaletteColors(uint8_t colorIndex) {
-  for (int i = 0; i < NUM_LEDS; i++) {
+  for (int i = 0; i < num_leds; i++) {
     leds[i] = ColorFromPalette(currentPalette, colorIndex, brightness,
                                currentBlending);
     colorIndex += 3;
@@ -486,7 +485,7 @@ void loop() {
         }
         colorBrightness = colorBrightness + brightnessDelta;
       }
-      for (int i = 0; i < NUM_LEDS; i++) {
+      for (int i = 0; i < num_leds; i++) {
         leds[i].setRGB(r, g, b);
         leds[i].fadeLightBy((uint8_t)colorBrightness);
       }
@@ -504,12 +503,12 @@ void loop() {
       }
       if (audioScaled > 0.0) {
         musicPreReact =
-            audioScaled * NUM_LEDS; // TRANSLATE AUDIO LEVEL TO NUMBER OF LEDs
+            audioScaled * num_leds; // TRANSLATE AUDIO LEVEL TO NUMBER OF LEDs
         if (musicPreReact > musicReact) // ONLY ADJUST LEVEL OF LED IF LEVEL
                                         // HIGHER THAN CURRENT LEVEL
           musicReact = musicPreReact;
       }
-      for (int i = NUM_LEDS - 1; i >= 0; i--) {
+      for (int i = num_leds - 1; i >= 0; i--) {
         if (i < musicReact) {
           leds[i] = music_scroll((i * 256 / 50 + musicWheelPosition) % 256);
           leds[i].fadeLightBy(brightness);

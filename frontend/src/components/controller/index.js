@@ -11,8 +11,8 @@ import './style.scss'
 
 const selectOptions = [
   { value: 'c', label: 'Color' },
-  { value: 'm', label: 'Music' },
   { value: 'p', label: 'Periodic' },
+  { value: 'w', label: 'Warm colors' },
   { value: 'r', label: 'Rainbow' },
   { value: 'rs', label: 'Rainbow Stripes' },
   { value: 'rsb', label: 'Rainbow Stripes Blend' },
@@ -24,7 +24,7 @@ const selectOptions = [
   { value: 'pa', label: 'Party' },
   { value: 'a', label: "'murica" },
   { value: 'ab', label: "'murica 2.0" },
-  { value: 'w', label: 'Warm colors' },
+  { value: 'm', label: 'Music' },
 ]
 
 const mqttControlTopic = 'rgb/control'

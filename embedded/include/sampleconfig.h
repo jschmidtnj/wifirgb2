@@ -7,3 +7,4 @@ const char *mqttPassword = "pass";
 const char *controlTopic = "rgb/control";
 const char *errorTopic = "rgb/error";
 const char *servicePassword = "pass";
+const int num_leds = 300 * 4;
