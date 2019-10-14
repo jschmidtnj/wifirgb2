@@ -4,10 +4,23 @@
 #include "user_interface.h"
 #include <Arduino.h>
 #include <ArduinoJson.h>
+#include <TimeLib.h>
+#include <NtpClientLib.h>
 #include <ESP8266WiFi.h>
 #include <FastLED.h>
 #include <PubSubClient.h>
 #include <config.h>
+
+#define NTP_TIMEOUT 1500
+// check every hour
+#define CHECK_TIME_PERIOD 3600
+// shuts off at 11:00
+#define SHUTOFF_HOUR 23
+int8_t timeZone = 1;
+int8_t minutesTimeZone = 0;
+const PROGMEM char *ntpServer = "pool.ntp.org";
+boolean syncEventTriggered = false; // True if a time even has been triggered
+NTPSyncEvent_t ntpEvent; // Last triggered event
 
 #define BAUD_RATE 115200
 #define LED_PIN 0
@@ -114,6 +127,57 @@ void callback(char *thetopic, byte *payload, unsigned int length) {
   }
 }
 
+void onSTAConnected (WiFiEventStationModeConnected ipInfo) {
+  Serial.printf("Connected to %s\r\n", ipInfo.ssid.c_str());
+}
+
+
+// Start NTP only after IP network is connected
+void onSTAGotIP (WiFiEventStationModeGotIP ipInfo) {
+  Serial.printf ("Got IP: %s\r\n", ipInfo.ip.toString ().c_str ());
+  Serial.printf ("Connected: %s\r\n", WiFi.status () == WL_CONNECTED ? "yes" : "no");
+  NTP.setInterval (63);
+  NTP.setNTPTimeout (NTP_TIMEOUT);
+  NTP.begin(ntpServer, timeZone, true, minutesTimeZone);
+}
+
+// Manage network disconnection
+void onSTADisconnected (WiFiEventStationModeDisconnected event_info) {
+  Serial.printf ("Disconnected from SSID: %s\n", event_info.ssid.c_str ());
+  Serial.printf ("Reason: %d\n", event_info.reason);
+  NTP.stop(); // NTP sync can be disabled to avoid sync errors
+}
+
+void processSyncEvent (NTPSyncEvent_t ntpEvent) {
+    if (ntpEvent < 0) {
+        Serial.printf ("Time Sync error: %d\n", ntpEvent);
+        if (ntpEvent == noResponse)
+            Serial.println ("NTP server not reachable");
+        else if (ntpEvent == invalidAddress)
+            Serial.println ("Invalid NTP server address");
+        else if (ntpEvent == errorSending)
+            Serial.println ("Error sending request");
+        else if (ntpEvent == responseError)
+            Serial.println ("NTP response error");
+    } else {
+        if (ntpEvent == timeSyncd) {
+            Serial.print ("Got NTP time: ");
+            Serial.println (NTP.getTimeDateString (NTP.getLastNTPSync ()));
+        }
+    }
+}
+
+void connectTimeServer() {
+  static WiFiEventHandler e1, e2, e3;
+  NTP.onNTPSyncEvent ([](NTPSyncEvent_t event) {
+    ntpEvent = event;
+    syncEventTriggered = true;
+  });
+  e1 = WiFi.onStationModeGotIP (onSTAGotIP);// As soon WiFi is connected, start NTP Client
+  e2 = WiFi.onStationModeDisconnected (onSTADisconnected);
+  e3 = WiFi.onStationModeConnected (onSTAConnected);
+}
+
 void connect() {
   boolean notConnected = false;
   while (WiFi.status() != WL_CONNECTED) {
@@ -125,6 +189,7 @@ void connect() {
     Serial.println("Connected to WiFi..");
     client.setServer(mqttServer, mqttPort);
     client.setCallback(callback);
+    connectTimeServer();
   }
   while (!client.connected()) {
     notConnected = true;
@@ -139,6 +204,22 @@ void connect() {
   }
   if (notConnected)
     client.subscribe(controlTopic);
+}
+
+void getTime() {
+  static int last_check = millis();
+  if (syncEventTriggered) {
+    processSyncEvent (ntpEvent);
+    syncEventTriggered = false;
+  }
+  int current_time = millis();
+  if ((current_time - last_check) > CHECK_TIME_PERIOD * 1000) {
+    last_check = millis ();
+    if (atoi(NTP.getTimeStr().substring(0, 2).c_str()) == SHUTOFF_HOUR && on) {
+      on = false;
+      justTurnedOff = true;
+    }
+  }
 }
 
 // MICROPHONE STUFF ****************************************
