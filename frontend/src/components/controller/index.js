@@ -24,6 +24,11 @@ const selectOptions = [
   { value: 'pa', label: 'Party' },
   { value: 'a', label: "'murica" },
   { value: 'ab', label: "'murica 2.0" },
+  { value: 'ha', label: 'Halloween' },
+  { value: 'th', label: 'Thanksgiving' },
+  { value: 'ch', label: 'Christmas' },
+  { value: 'ny', label: "New Year's" },
+  { value: 'ea', label: 'Easter' },
   { value: 'm', label: 'Music' },
 ]
 
@@ -71,18 +76,20 @@ const handle = props => {
 }
 
 const defaultColor = {
-  r: 0,
+  r: 255,
   g: 255,
-  b: 233,
+  b: 255,
   a: 1,
 }
+
+const defaultMode = selectOptions[0].value
 
 class Controller extends React.Component {
   constructor(props) {
     super(props)
     this.state = {
       on: false,
-      mode: null,
+      mode: defaultMode,
       color: Object.assign({}, defaultColor),
       speed: defaultSpeed,
       pulse: defaultPulse,

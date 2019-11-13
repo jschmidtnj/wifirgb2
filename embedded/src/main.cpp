@@ -20,7 +20,7 @@ int8_t timeZone = 1;
 int8_t minutesTimeZone = 0;
 const PROGMEM char *ntpServer = "pool.ntp.org";
 boolean syncEventTriggered = false; // True if a time even has been triggered
-NTPSyncEvent_t ntpEvent; // Last triggered event
+NTPSyncEvent_t ntpEvent;            // Last triggered event
 
 #define BAUD_RATE 115200
 #define LED_PIN 0
@@ -63,19 +63,24 @@ uint8_t brightness = 255; // brightness of given mode
 long musicPreReact = 0.0f, musicReact = 0.0f;
 double brightnessDelta = 0.0, colorBrightness = 0.0, fadePeriod = 0.0;
 
-vector<string> modes{"c",  "m",   "p",  "r",  "rs", "rsb", "pg", "ra",
-                     "bw", "bwb", "cl", "pa", "a",  "ab",  "w"};
+vector<string> modes{"c", "m", "p", "r", "rs", "rsb", "pg", "ra",
+                     "bw", "bwb", "cl", "pa", "a", "ab", "w", "ha",
+                     "th", "ch", "ny", "ea"};
 
-boolean check_in_modes(const char *mode) {
+bool check_in_modes(const char *mode)
+{
   return find(modes.begin(), modes.end(), mode) != modes.end();
 }
 
-void callback(char *thetopic, byte *payload, unsigned int length) {
+void callback(char *thetopic, byte *payload, unsigned int length)
+{
   // Serial.println(thetopic);
-  if (strcmp(thetopic, controlTopic) == 0) {
+  if (strcmp(thetopic, controlTopic) == 0)
+  {
     DeserializationError err = deserializeJson(data, payload);
     // Test if parsing succeeds.
-    if (err) {
+    if (err)
+    {
       string errorMessageStr = "deserializeJson() failed: ";
       errorMessageStr += string(err.c_str());
       Serial.println(errorMessageStr.c_str());
@@ -83,19 +88,23 @@ void callback(char *thetopic, byte *payload, unsigned int length) {
       client.publish(errorTopic, errorMessageJsonStr.c_str());
       return;
     }
-    if (!strcmp(data["p"], servicePassword) == 0) {
+    if (!strcmp(data["p"], servicePassword) == 0)
+    {
       string errorMessageStr = "invalid password";
       Serial.println(errorMessageStr.c_str());
       string errorMessageJsonStr = "{\"error\":\"" + errorMessageStr + "\"}";
       client.publish(errorTopic, errorMessageJsonStr.c_str());
       return;
     }
-    if (data["m"]) {
-      if (strcmp(data["m"], "c") == 0) {
+    if (data["m"])
+    {
+      if (strcmp(data["m"], "c") == 0)
+      {
         if (!(data["c"] && data["c"]["r"] >= 0 && data["c"]["r"] <= 255 &&
               data["c"]["g"] >= 0 && data["c"]["g"] <= 255 &&
               data["c"]["b"] >= 0 && data["c"]["b"] <= 255 &&
-              data["c"]["a"] >= 0 && data["c"]["a"] <= 255)) {
+              data["c"]["a"] >= 0 && data["c"]["a"] <= 255))
+        {
           string errorMessageStr = "invalid rgba input";
           Serial.println(errorMessageStr.c_str());
           string errorMessageJsonStr =
@@ -107,13 +116,17 @@ void callback(char *thetopic, byte *payload, unsigned int length) {
         g = data["c"]["g"];
         b = data["c"]["b"];
         a = data["c"]["a"];
-      } else if (!check_in_modes(data["m"])) {
+      }
+      else if (!check_in_modes(data["m"]))
+      {
         string errorMessageStr = "invalid mode";
         Serial.println(errorMessageStr.c_str());
         string errorMessageJsonStr = "{\"error\":\"" + errorMessageStr + "\"}";
         client.publish(errorTopic, errorMessageJsonStr.c_str());
         return;
-      } else {
+      }
+      else
+      {
         brightness = (uint8_t)data["b"];
       }
       mode = strdup(data["m"]);
@@ -127,76 +140,91 @@ void callback(char *thetopic, byte *payload, unsigned int length) {
   }
 }
 
-void onSTAConnected (WiFiEventStationModeConnected ipInfo) {
+void onSTAConnected(WiFiEventStationModeConnected ipInfo)
+{
   Serial.printf("Connected to %s\r\n", ipInfo.ssid.c_str());
 }
 
-
 // Start NTP only after IP network is connected
-void onSTAGotIP (WiFiEventStationModeGotIP ipInfo) {
-  Serial.printf ("Got IP: %s\r\n", ipInfo.ip.toString ().c_str ());
-  Serial.printf ("Connected: %s\r\n", WiFi.status () == WL_CONNECTED ? "yes" : "no");
-  NTP.setInterval (63);
-  NTP.setNTPTimeout (NTP_TIMEOUT);
+void onSTAGotIP(WiFiEventStationModeGotIP ipInfo)
+{
+  Serial.printf("Got IP: %s\r\n", ipInfo.ip.toString().c_str());
+  Serial.printf("Connected: %s\r\n", WiFi.status() == WL_CONNECTED ? "yes" : "no");
+  NTP.setInterval(63);
+  NTP.setNTPTimeout(NTP_TIMEOUT);
   NTP.begin(ntpServer, timeZone, true, minutesTimeZone);
 }
 
 // Manage network disconnection
-void onSTADisconnected (WiFiEventStationModeDisconnected event_info) {
-  Serial.printf ("Disconnected from SSID: %s\n", event_info.ssid.c_str ());
-  Serial.printf ("Reason: %d\n", event_info.reason);
+void onSTADisconnected(WiFiEventStationModeDisconnected event_info)
+{
+  Serial.printf("Disconnected from SSID: %s\n", event_info.ssid.c_str());
+  Serial.printf("Reason: %d\n", event_info.reason);
   NTP.stop(); // NTP sync can be disabled to avoid sync errors
 }
 
-void processSyncEvent (NTPSyncEvent_t ntpEvent) {
-    if (ntpEvent < 0) {
-        Serial.printf ("Time Sync error: %d\n", ntpEvent);
-        if (ntpEvent == noResponse)
-            Serial.println ("NTP server not reachable");
-        else if (ntpEvent == invalidAddress)
-            Serial.println ("Invalid NTP server address");
-        else if (ntpEvent == errorSending)
-            Serial.println ("Error sending request");
-        else if (ntpEvent == responseError)
-            Serial.println ("NTP response error");
-    } else {
-        if (ntpEvent == timeSyncd) {
-            Serial.print ("Got NTP time: ");
-            Serial.println (NTP.getTimeDateString (NTP.getLastNTPSync ()));
-        }
+void processSyncEvent(NTPSyncEvent_t ntpEvent)
+{
+  if (ntpEvent < 0)
+  {
+    Serial.printf("Time Sync error: %d\n", ntpEvent);
+    if (ntpEvent == noResponse)
+      Serial.println("NTP server not reachable");
+    else if (ntpEvent == invalidAddress)
+      Serial.println("Invalid NTP server address");
+    else if (ntpEvent == errorSending)
+      Serial.println("Error sending request");
+    else if (ntpEvent == responseError)
+      Serial.println("NTP response error");
+  }
+  else
+  {
+    if (ntpEvent == timeSyncd)
+    {
+      Serial.print("Got NTP time: ");
+      Serial.println(NTP.getTimeDateString(NTP.getLastNTPSync()));
     }
+  }
 }
 
-void connectTimeServer() {
+void connectTimeServer()
+{
   static WiFiEventHandler e1, e2, e3;
-  NTP.onNTPSyncEvent ([](NTPSyncEvent_t event) {
+  NTP.onNTPSyncEvent([](NTPSyncEvent_t event) {
     ntpEvent = event;
     syncEventTriggered = true;
   });
-  e1 = WiFi.onStationModeGotIP (onSTAGotIP);// As soon WiFi is connected, start NTP Client
-  e2 = WiFi.onStationModeDisconnected (onSTADisconnected);
-  e3 = WiFi.onStationModeConnected (onSTAConnected);
+  e1 = WiFi.onStationModeGotIP(onSTAGotIP); // As soon WiFi is connected, start NTP Client
+  e2 = WiFi.onStationModeDisconnected(onSTADisconnected);
+  e3 = WiFi.onStationModeConnected(onSTAConnected);
 }
 
-void connect() {
+void connect()
+{
   boolean notConnected = false;
-  while (WiFi.status() != WL_CONNECTED) {
+  while (WiFi.status() != WL_CONNECTED)
+  {
     notConnected = true;
     delay(500);
     Serial.println("Connecting to WiFi..");
   }
-  if (notConnected) {
+  if (notConnected)
+  {
     Serial.println("Connected to WiFi..");
     client.setServer(mqttServer, mqttPort);
     client.setCallback(callback);
     connectTimeServer();
   }
-  while (!client.connected()) {
+  while (!client.connected())
+  {
     notConnected = true;
     Serial.println("Connecting to MQTT...");
-    if (client.connect("ESP8266Client", mqttUser, mqttPassword)) {
+    if (client.connect("ESP8266Client", mqttUser, mqttPassword))
+    {
       Serial.println("connected");
-    } else {
+    }
+    else
+    {
       Serial.print("failed with state ");
       Serial.print(client.state());
       delay(2000);
@@ -206,16 +234,20 @@ void connect() {
     client.subscribe(controlTopic);
 }
 
-void getTime() {
+void getTime()
+{
   static int last_check = millis();
-  if (syncEventTriggered) {
-    processSyncEvent (ntpEvent);
+  if (syncEventTriggered)
+  {
+    processSyncEvent(ntpEvent);
     syncEventTriggered = false;
   }
   int current_time = millis();
-  if ((current_time - last_check) > CHECK_TIME_PERIOD * 1000) {
-    last_check = millis ();
-    if (atoi(NTP.getTimeStr().substring(0, 2).c_str()) == SHUTOFF_HOUR && on) {
+  if ((current_time - last_check) > CHECK_TIME_PERIOD * 1000)
+  {
+    last_check = millis();
+    if (atoi(NTP.getTimeStr().substring(0, 2).c_str()) == SHUTOFF_HOUR && on)
+    {
       on = false;
       justTurnedOff = true;
     }
@@ -234,7 +266,8 @@ void getTime() {
  */
 #define convert(sample) (((int32_t)(sample) >> 13) - 240200)
 
-typedef struct {
+typedef struct
+{
   uint32_t blocksize : 12;
   uint32_t datalen : 12;
   uint32_t unused : 5;
@@ -258,7 +291,8 @@ static volatile bool rx_buf_flag = false;
  * I2S bits mode only has space for 15 extra bits,
  * 31 in total. The
  */
-void i2s_set_rate(uint32_t rate) {
+void i2s_set_rate(uint32_t rate)
+{
   uint32_t i2s_clock_div = (I2S_CLK_FREQ / (rate * 31 * 2)) & I2SCDM;
   uint32_t i2s_bck_div =
       (I2S_CLK_FREQ / (rate * i2s_clock_div * 31 * 2)) & I2SBDM;
@@ -273,7 +307,8 @@ void i2s_set_rate(uint32_t rate) {
 /**
  * Initialise I2S as a RX master.
  */
-void i2s_init() {
+void i2s_init()
+{
   // Config RX pin function
   PIN_FUNC_SELECT(PERIPHS_IO_MUX_MTDI_U, FUNC_I2SI_DATA);
   PIN_FUNC_SELECT(PERIPHS_IO_MUX_MTCK_U, FUNC_I2SI_BCK);
@@ -312,17 +347,20 @@ void i2s_init() {
  * Triggered when SLC has finished writing
  * to one of the buffers.
  */
-void ICACHE_RAM_ATTR slc_isr(void *para) {
+void ICACHE_RAM_ATTR slc_isr(void *para)
+{
   uint32_t status;
 
   status = SLCIS;
   SLCIC = 0xFFFFFFFF;
 
-  if (status == 0) {
+  if (status == 0)
+  {
     return;
   }
 
-  if (status & SLCITXEOF) {
+  if (status & SLCITXEOF)
+  {
     // We have received a frame
     ETS_SLC_INTR_DISABLE();
     sdio_queue_t *finished = (sdio_queue_t *)SLCTXEDA;
@@ -331,8 +369,10 @@ void ICACHE_RAM_ATTR slc_isr(void *para) {
     finished->owner = 1;
     finished->datalen = 0;
 
-    for (int i = 0; i < SLC_BUF_CNT; i++) {
-      if (finished == &i2s_slc_items[i]) {
+    for (int i = 0; i < SLC_BUF_CNT; i++)
+    {
+      if (finished == &i2s_slc_items[i])
+      {
         rx_buf_idx = i;
       }
     }
@@ -347,8 +387,10 @@ void ICACHE_RAM_ATTR slc_isr(void *para) {
  * Counter intuitively, we use the TXLINK here to
  * receive data.
  */
-void slc_init() {
-  for (int x = 0; x < SLC_BUF_CNT; x++) {
+void slc_init()
+{
+  for (int x = 0; x < SLC_BUF_CNT; x++)
+  {
     i2s_slc_buf_pntr[x] = (uint32_t *)malloc(SLC_BUF_LEN * 4);
     for (int y = 0; y < SLC_BUF_LEN; y++)
       i2s_slc_buf_pntr[x][y] = 0;
@@ -390,7 +432,8 @@ void slc_init() {
   SLCTXL |= SLCTXLS;
 }
 
-void setup() {
+void setup()
+{
   // micrphone stuff
   rx_buf_cnt = 0;
   pinMode(I2SI_WS, OUTPUT);
@@ -410,8 +453,10 @@ void setup() {
   connect();
 }
 
-void FillLEDsFromPaletteColors(uint8_t colorIndex) {
-  for (int i = 0; i < num_leds; i++) {
+void FillLEDsFromPaletteColors(uint8_t colorIndex)
+{
+  for (int i = 0; i < num_leds; i++)
+  {
     leds[i] = ColorFromPalette(currentPalette, colorIndex, brightness,
                                currentBlending);
     colorIndex += 3;
@@ -428,7 +473,8 @@ void FillLEDsFromPaletteColors(uint8_t colorIndex) {
 // write code that creates color palettes on the fly.  All are shown here.
 
 // This function fills the palette with totally random colors.
-void SetupTotallyRandomPalette() {
+void SetupTotallyRandomPalette()
+{
   for (int i = 0; i < 16; i++)
     currentPalette[i] = CHSV(random8(), 255, random8());
 }
@@ -437,7 +483,8 @@ void SetupTotallyRandomPalette() {
 // using code.  Since the palette is effectively an array of
 // sixteen CRGB colors, the various fill_* functions can be used
 // to set them up.
-void SetupBlackAndWhiteStripedPalette() {
+void SetupBlackAndWhiteStripedPalette()
+{
   // 'black out' all 16 palette entries...
   fill_solid(currentPalette, 16, CRGB::Black);
   // and set every fourth one to white.
@@ -448,7 +495,8 @@ void SetupBlackAndWhiteStripedPalette() {
 }
 
 // This function sets up a palette of purple and green stripes.
-void SetupPurpleAndGreenPalette() {
+void SetupPurpleAndGreenPalette()
+{
   CRGB purple = CHSV(HUE_PURPLE, 255, 255);
   CRGB green = CHSV(HUE_GREEN, 255, 255);
   CRGB black = CRGB::Black;
@@ -465,12 +513,13 @@ void SetupPurpleAndGreenPalette() {
 const TProgmemPalette16 myRedWhiteBluePaletteP PROGMEM = {
     CRGB::Red,
     CRGB::Gray, // 'white' is too bright compared to red and blue
-    CRGB::Blue,  CRGB::Black, CRGB::Red,   CRGB::Gray, CRGB::Blue,
-    CRGB::Black, CRGB::Red,   CRGB::Red,   CRGB::Gray, CRGB::Gray,
-    CRGB::Blue,  CRGB::Blue,  CRGB::Black, CRGB::Black};
+    CRGB::Blue, CRGB::Black, CRGB::Red, CRGB::Gray, CRGB::Blue,
+    CRGB::Black, CRGB::Red, CRGB::Red, CRGB::Gray, CRGB::Gray,
+    CRGB::Blue, CRGB::Blue, CRGB::Black, CRGB::Black};
 
 // This function sets up a palette of warm colors.
-void SetupWarmPalette() {
+void SetupWarmPalette()
+{
   CRGB yellow = CRGB(255, 250, 0);
   CRGB orange = CRGB(255, 136, 0);
   CRGB red = CRGB(255, 70, 0);
@@ -481,49 +530,121 @@ void SetupWarmPalette() {
                     violet, violet, red, red, orange, orange, yellow, yellow);
 }
 
-void ChangePalettePeriodically() {
+void SetupHalloweenPalette()
+{
+  CRGB orange = CRGB(247, 95, 28);
+  CRGB yellow = CRGB(255, 154, 0);
+  CRGB black = CRGB(0, 0, 0);
+  CRGB purple = CRGB(136, 30, 228);
+
+  currentPalette =
+      CRGBPalette16(orange, orange, yellow, yellow, black, black, purple, purple,
+                    purple, purple, black, black, yellow, yellow, orange, orange);
+}
+
+void SetupThanksgivingPalette()
+{
+  CRGB yellow = CRGB(241, 185, 48);
+  CRGB red = CRGB(181, 71, 48);
+  CRGB brown = CRGB(158, 104, 42);
+  CRGB green = CRGB(138, 151, 72);
+
+  currentPalette =
+      CRGBPalette16(yellow, yellow, red, red, green, green, brown, brown,
+                    brown, brown, green, green, red, red, yellow, yellow);
+}
+
+void SetupChristmasPalette()
+{
+  CRGB green = CRGB(92, 137, 30);
+  CRGB light_green = CRGB(116, 150, 63);
+  CRGB red_pink = CRGB(236, 70, 58);
+  CRGB orange_red = CRGB(193, 51, 40);
+
+  currentPalette =
+      CRGBPalette16(green, green, light_green, light_green, red_pink, red_pink, orange_red, orange_red,
+                    orange_red, orange_red, red_pink, red_pink, light_green, light_green, green, green);
+}
+
+void SetupNewYearsPalette()
+{
+  CRGB dark_blue = CRGB(22, 36, 161);
+  CRGB light_blue = CRGB(162, 189, 242);
+  CRGB pink = CRGB(252, 91, 141);
+  CRGB purple = CRGB(168, 2, 110);
+
+  currentPalette =
+      CRGBPalette16(dark_blue, dark_blue, light_blue, light_blue, pink, pink, purple, purple,
+                    purple, purple, pink, pink, light_blue, light_blue, dark_blue, dark_blue);
+}
+
+void SetupEasterPalette()
+{
+  CRGB pink = CRGB(255, 212, 229);
+  CRGB purple = CRGB(224, 205, 255);
+  CRGB green = CRGB(183, 215, 132);
+  CRGB yellow = CRGB(254, 255, 162);
+
+  currentPalette =
+      CRGBPalette16(pink, pink, purple, purple, green, green, yellow, yellow,
+                    yellow, yellow, green, green, purple, purple, pink, pink);
+}
+
+void ChangePalettePeriodically()
+{
   uint8_t secondHand = (millis() / 1000) % 60;
-  if (secondHand == 0) {
+  if (secondHand == 0)
+  {
     currentPalette = RainbowColors_p;
     currentBlending = LINEARBLEND;
   }
-  if (secondHand == 10) {
+  if (secondHand == 10)
+  {
     currentPalette = RainbowStripeColors_p;
     currentBlending = NOBLEND;
   }
-  if (secondHand == 15) {
+  if (secondHand == 15)
+  {
     currentPalette = RainbowStripeColors_p;
     currentBlending = LINEARBLEND;
   }
-  if (secondHand == 20) {
+  if (secondHand == 20)
+  {
     SetupPurpleAndGreenPalette();
     currentBlending = LINEARBLEND;
   }
-  if (secondHand == 25) {
+  if (secondHand == 25)
+  {
     SetupTotallyRandomPalette();
     currentBlending = LINEARBLEND;
   }
-  if (secondHand == 30) {
+  if (secondHand == 30)
+  {
     SetupBlackAndWhiteStripedPalette();
     currentBlending = NOBLEND;
   }
-  if (secondHand == 35) {
+  if (secondHand == 35)
+  {
     SetupBlackAndWhiteStripedPalette();
     currentBlending = LINEARBLEND;
   }
-  if (secondHand == 40) {
+  if (secondHand == 40)
+  {
     currentPalette = CloudColors_p;
     currentBlending = LINEARBLEND;
   }
-  if (secondHand == 45) {
+  if (secondHand == 45)
+  {
     currentPalette = PartyColors_p;
     currentBlending = LINEARBLEND;
   }
-  if (secondHand == 50) {
+  if (secondHand == 50)
+  {
     currentPalette = myRedWhiteBluePaletteP;
     currentBlending = NOBLEND;
   }
-  if (secondHand == 55) {
+  if (secondHand == 55)
+  {
     currentPalette = myRedWhiteBluePaletteP;
     currentBlending = LINEARBLEND;
   }
@@ -531,17 +652,23 @@ void ChangePalettePeriodically() {
 
 // FUNCTION TO GENERATE COLOR BASED ON VIRTUAL WHEEL
 // https://github.com/NeverPlayLegit/Rainbow-Fader-FastLED/blob/master/rainbow.ino
-CRGB music_scroll(int pos) {
+CRGB music_scroll(int pos)
+{
   CRGB color(0, 0, 0);
-  if (pos < 85) {
+  if (pos < 85)
+  {
     color.g = 0;
     color.r = ((float)pos / 85.0f) * 255.0f;
     color.b = 255 - color.r;
-  } else if (pos < 170) {
+  }
+  else if (pos < 170)
+  {
     color.g = ((float)(pos - 85) / 85.0f) * 255.0f;
     color.r = 255 - color.g;
     color.b = 0;
-  } else if (pos < 256) {
+  }
+  else if (pos < 256)
+  {
     color.b = ((float)(pos - 170) / 85.0f) * 255.0f;
     color.g = 255 - color.b;
     color.r = 1;
@@ -549,32 +676,45 @@ CRGB music_scroll(int pos) {
   return color;
 }
 
-void loop() {
+void loop()
+{
   // first make sure you are connected to wifi
   connect();
   // then get current data
   client.loop();
   // then do the action
-  if (on) {
-    if (strcmp(mode, modes[0].c_str()) == 0) {
-      if (fadePeriod == 0.0) {
+  if (on)
+  {
+    if (strcmp(mode, modes[0].c_str()) == 0)
+    {
+      if (fadePeriod == 0.0)
+      {
         colorBrightness = (double)a;
-      } else {
+      }
+      else
+      {
         if (colorBrightness + brightnessDelta < (double)a ||
-            colorBrightness + brightnessDelta > 255.0) {
+            colorBrightness + brightnessDelta > 255.0)
+        {
           brightnessDelta = -brightnessDelta;
         }
         colorBrightness = colorBrightness + brightnessDelta;
       }
-      for (int i = 0; i < num_leds; i++) {
+      for (int i = 0; i < num_leds; i++)
+      {
         leds[i].setRGB(r, g, b);
         leds[i].fadeLightBy((uint8_t)colorBrightness);
       }
-    } else if (strcmp(mode, modes[1].c_str()) == 0) {
+    }
+    else if (strcmp(mode, modes[1].c_str()) == 0)
+    {
       double audioScaled = 0.0;
-      if (rx_buf_flag) {
-        for (int i = 0; i < SLC_BUF_LEN; i++) {
-          if (i2s_slc_buf_pntr[rx_buf_idx][i] > 0) {
+      if (rx_buf_flag)
+      {
+        for (int i = 0; i < SLC_BUF_LEN; i++)
+        {
+          if (i2s_slc_buf_pntr[rx_buf_idx][i] > 0)
+          {
             audioScaled =
                 (double)convert(i2s_slc_buf_pntr[rx_buf_idx][i] / 4096.0);
             break;
@@ -582,18 +722,23 @@ void loop() {
         }
         rx_buf_flag = false;
       }
-      if (audioScaled > 0.0) {
+      if (audioScaled > 0.0)
+      {
         musicPreReact =
-            audioScaled * num_leds; // TRANSLATE AUDIO LEVEL TO NUMBER OF LEDs
+            audioScaled * num_leds;     // TRANSLATE AUDIO LEVEL TO NUMBER OF LEDs
         if (musicPreReact > musicReact) // ONLY ADJUST LEVEL OF LED IF LEVEL
                                         // HIGHER THAN CURRENT LEVEL
           musicReact = musicPreReact;
       }
-      for (int i = num_leds - 1; i >= 0; i--) {
-        if (i < musicReact) {
+      for (int i = num_leds - 1; i >= 0; i--)
+      {
+        if (i < musicReact)
+        {
           leds[i] = music_scroll((i * 256 / 50 + musicWheelPosition) % 256);
           leds[i].fadeLightBy(brightness);
-        } else {
+        }
+        else
+        {
           leds[i] = CRGB(0, 0, 0);
         }
       }
@@ -610,87 +755,156 @@ void loop() {
           musicReact--;
       }
       yield();
-    } else if (strcmp(mode, modes[2].c_str()) == 0) {
+    }
+    else if (strcmp(mode, modes[2].c_str()) == 0)
+    {
       ChangePalettePeriodically();
       static uint8_t startIndex = 0;
       startIndex = startIndex + speed;
       FillLEDsFromPaletteColors(startIndex);
-    } else if (strcmp(mode, modes[3].c_str()) == 0) {
+    }
+    else if (strcmp(mode, modes[3].c_str()) == 0)
+    {
       currentPalette = RainbowColors_p;
       currentBlending = LINEARBLEND;
       static uint8_t startIndex = 0;
       startIndex = startIndex + speed;
       FillLEDsFromPaletteColors(startIndex);
-    } else if (strcmp(mode, modes[4].c_str()) == 0) {
+    }
+    else if (strcmp(mode, modes[4].c_str()) == 0)
+    {
       currentPalette = RainbowStripeColors_p;
       currentBlending = NOBLEND;
       static uint8_t startIndex = 0;
       startIndex = startIndex + speed;
       FillLEDsFromPaletteColors(startIndex);
-    } else if (strcmp(mode, modes[5].c_str()) == 0) {
+    }
+    else if (strcmp(mode, modes[5].c_str()) == 0)
+    {
       currentPalette = RainbowStripeColors_p;
       currentBlending = LINEARBLEND;
       static uint8_t startIndex = 0;
       startIndex = startIndex + speed;
       FillLEDsFromPaletteColors(startIndex);
-    } else if (strcmp(mode, modes[6].c_str()) == 0) {
+    }
+    else if (strcmp(mode, modes[6].c_str()) == 0)
+    {
       SetupPurpleAndGreenPalette();
       currentBlending = LINEARBLEND;
       static uint8_t startIndex = 0;
       startIndex = startIndex + speed;
       FillLEDsFromPaletteColors(startIndex);
-    } else if (strcmp(mode, modes[7].c_str()) == 0) {
+    }
+    else if (strcmp(mode, modes[7].c_str()) == 0)
+    {
       SetupTotallyRandomPalette();
       currentBlending = LINEARBLEND;
       static uint8_t startIndex = 0;
       startIndex = startIndex + speed;
       FillLEDsFromPaletteColors(startIndex);
-    } else if (strcmp(mode, modes[8].c_str()) == 0) {
+    }
+    else if (strcmp(mode, modes[8].c_str()) == 0)
+    {
       SetupBlackAndWhiteStripedPalette();
       currentBlending = NOBLEND;
       static uint8_t startIndex = 0;
       startIndex = startIndex + speed;
       FillLEDsFromPaletteColors(startIndex);
-    } else if (strcmp(mode, modes[9].c_str()) == 0) {
+    }
+    else if (strcmp(mode, modes[9].c_str()) == 0)
+    {
       SetupBlackAndWhiteStripedPalette();
       currentBlending = LINEARBLEND;
       static uint8_t startIndex = 0;
       startIndex = startIndex + speed;
       FillLEDsFromPaletteColors(startIndex);
-    } else if (strcmp(mode, modes[10].c_str()) == 0) {
+    }
+    else if (strcmp(mode, modes[10].c_str()) == 0)
+    {
       currentPalette = CloudColors_p;
       currentBlending = LINEARBLEND;
       static uint8_t startIndex = 0;
       startIndex = startIndex + speed;
       FillLEDsFromPaletteColors(startIndex);
-    } else if (strcmp(mode, modes[11].c_str()) == 0) {
+    }
+    else if (strcmp(mode, modes[11].c_str()) == 0)
+    {
       currentPalette = PartyColors_p;
       currentBlending = LINEARBLEND;
       static uint8_t startIndex = 0;
       startIndex = startIndex + speed;
       FillLEDsFromPaletteColors(startIndex);
-    } else if (strcmp(mode, modes[12].c_str()) == 0) {
+    }
+    else if (strcmp(mode, modes[12].c_str()) == 0)
+    {
       currentPalette = myRedWhiteBluePaletteP;
       currentBlending = NOBLEND;
       static uint8_t startIndex = 0;
       startIndex = startIndex + speed;
       FillLEDsFromPaletteColors(startIndex);
-    } else if (strcmp(mode, modes[13].c_str()) == 0) {
+    }
+    else if (strcmp(mode, modes[13].c_str()) == 0)
+    {
       currentPalette = myRedWhiteBluePaletteP;
       currentBlending = LINEARBLEND;
       static uint8_t startIndex = 0;
       startIndex = startIndex + speed;
       FillLEDsFromPaletteColors(startIndex);
-    } else if (strcmp(mode, modes[14].c_str()) == 0) {
+    }
+    else if (strcmp(mode, modes[14].c_str()) == 0)
+    {
       SetupWarmPalette();
       currentBlending = LINEARBLEND;
       static uint8_t startIndex = 0;
       startIndex = startIndex + speed;
       FillLEDsFromPaletteColors(startIndex);
     }
+    else if (strcmp(mode, modes[15].c_str()) == 0)
+    {
+      SetupHalloweenPalette();
+      currentBlending = LINEARBLEND;
+      static uint8_t startIndex = 0;
+      startIndex = startIndex + speed;
+      FillLEDsFromPaletteColors(startIndex);
+    }
+    else if (strcmp(mode, modes[16].c_str()) == 0)
+    {
+      SetupThanksgivingPalette();
+      currentBlending = LINEARBLEND;
+      static uint8_t startIndex = 0;
+      startIndex = startIndex + speed;
+      FillLEDsFromPaletteColors(startIndex);
+    }
+    else if (strcmp(mode, modes[17].c_str()) == 0)
+    {
+      SetupChristmasPalette();
+      currentBlending = LINEARBLEND;
+      static uint8_t startIndex = 0;
+      startIndex = startIndex + speed;
+      FillLEDsFromPaletteColors(startIndex);
+    }
+    else if (strcmp(mode, modes[18].c_str()) == 0)
+    {
+      SetupNewYearsPalette();
+      currentBlending = LINEARBLEND;
+      static uint8_t startIndex = 0;
+      startIndex = startIndex + speed;
+      FillLEDsFromPaletteColors(startIndex);
+    }
+    else if (strcmp(mode, modes[19].c_str()) == 0)
+    {
+      SetupEasterPalette();
+      currentBlending = LINEARBLEND;
+      static uint8_t startIndex = 0;
+      startIndex = startIndex + speed;
+      FillLEDsFromPaletteColors(startIndex);
+    }
     FastLED.show();
-  } else {
-    if (justTurnedOff) {
+  }
+  else
+  {
+    if (justTurnedOff)
+    {
       justTurnedOff = false;
       FastLED.clear();
     }
