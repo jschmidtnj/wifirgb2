@@ -11,7 +11,12 @@ import './style.scss'
 import { useEffect } from 'react'
 import { useState } from 'react'
 
-const selectOptions = [
+interface SelectOptionType {
+  value: string;
+  label: string;
+}
+
+const selectOptions: SelectOptionType[] = [
   { value: 'c', label: 'Color' },
   { value: 'p', label: 'Periodic' },
   { value: 'w', label: 'Warm colors' },
@@ -64,11 +69,11 @@ const defaultColor: RGBColor = {
   a: 1,
 }
 
-const defaultMode = selectOptions[0].value
+const defaultMode = selectOptions[0]
 
 const Controller = () => {
   const [on, setOn] = useState(false)
-  const [mode, setMode] = useState<string | null>(defaultMode)
+  const [mode, setMode] = useState<SelectOptionType | null>(defaultMode)
   const [color, setColor] = useState<RGBColor>({
     ...defaultColor,
   })
@@ -136,7 +141,7 @@ const Controller = () => {
 
   const paramsSelect = () => {
     if (mode) {
-      if (mode === selectOptions[0].value) {
+      if (mode.value === selectOptions[0].value) {
         return (
           <div>
             <div className="mt-4">
@@ -194,7 +199,7 @@ const Controller = () => {
             />
           </div>
         )
-        if (mode === selectOptions[1].value) return brightnessDiv
+        if (mode.value === selectOptions[1].value) return brightnessDiv
         else
           return (
             <div>
@@ -217,11 +222,10 @@ const Controller = () => {
             value={mode}
             onChange={(selectedOption) => {
               if (!selectedOption) return
-              // @ts-ignore
-              const selected = selectedOption.value as string
-              setMode(selected)
-              setFormValid(passwordValid)
-              console.log('Option selected: ', selected)
+              const selected = selectedOption as SelectOptionType;
+              setMode(selected);
+              setFormValid(passwordValid);
+              console.log(`Option selected: ${selected.value}`);
             }}
             options={selectOptions}
           />
