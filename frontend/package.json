@@ -77,14 +77,8 @@
   ],
   "license": "MIT",
   "lint-staged": {
-    "*.{js,json,md}": [
-      "prettier --write",
-      "git add"
-    ],
-    "*.md": [
-      "npm run lint:textfix",
-      "git add"
-    ]
+    "*.{js,json,md}": ["prettier --write"],
+    "*.md": ["npm run lint:textfix"]
   },
   "main": "n/a",
   "scripts": {

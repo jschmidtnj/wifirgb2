@@ -258,10 +258,10 @@ const Controller = () => {
       <form
         onSubmit={(evt) => {
           evt.preventDefault()
-          if (!color.a) return
+          if (!color.a || !mode) return
           const command = JSON.stringify({
             o: on,
-            m: mode,
+            m: mode.value,
             c: {
               r: color.r,
               g: color.g,
