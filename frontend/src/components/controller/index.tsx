@@ -310,7 +310,7 @@ const Controller = () => {
               id="powerOff"
               value="off"
               checked={!on}
-              onChange={() => setPower(true)}
+              onChange={() => setPower(false)}
             />
             <label className="form-check-label" htmlFor="powerOff">
               Off
