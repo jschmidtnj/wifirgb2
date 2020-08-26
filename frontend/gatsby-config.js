@@ -4,7 +4,6 @@ module.exports = {
   siteMetadata: {
     title: 'RGB',
     description: 'rgb controller',
-    siteUrl: process.env.GATSBY_SITE_URL,
     author: 'joshuaschmidt',
   },
   pathPrefix: '/',
