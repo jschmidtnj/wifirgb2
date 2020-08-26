@@ -1,7 +1,7 @@
 const webpack = require('webpack')
 const each = require('lodash/each')
 const path = require('path')
-const PostTemplate = path.resolve('./src/templates/index.js')
+const PostTemplate = path.resolve('./src/templates/index.tsx')
 
 exports.createPages = ({ graphql, actions }) => {
   const { createPage } = actions

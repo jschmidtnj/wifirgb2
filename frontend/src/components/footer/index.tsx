@@ -1,7 +1,7 @@
 import React from 'react'
 import './style.scss'
 
-const Footer = ({ author, title }) => (
+const Footer = () => (
   <div className="footer">
     <div className="container">
       <hr className="border-primary" />

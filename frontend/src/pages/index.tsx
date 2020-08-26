@@ -7,21 +7,23 @@ import Meta from 'components/meta'
 import Layout from 'components/layout'
 import Controller from 'components/controller'
 
-const Index = ({ data, location }) => {
+const Index = ({ data }: Record<string, any>) => {
   const posts = get(data, 'remark.posts')
   return (
-    <Layout location={location}>
-      <Meta site={get(data, 'site.meta')} />
-      <Controller />
-      {posts.map(({ post }, i) => (
-        <Post
-          data={post}
-          options={{
-            isIndex: true,
-          }}
-          key={i}
-        />
-      ))}
+    <Layout>
+      <>
+        <Meta title={''} />
+        <Controller />
+        {posts.map(({ post }: Record<string, unknown>, i: number) => (
+          <Post
+            data={post}
+            options={{
+              isIndex: true,
+            }}
+            key={i}
+          />
+        ))}
+      </>
     </Layout>
   )
 }
@@ -34,9 +36,7 @@ export const pageQuery = graphql`
       meta: siteMetadata {
         title
         description
-        url: siteUrl
         author
-        twitter
       }
     }
     remark: allMarkdownRemark(
