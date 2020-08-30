@@ -19,7 +19,7 @@ boolean daylightSavings = true;
 const PROGMEM char *ntpServer = "pool.ntp.org";
 
 #define BAUD_RATE 115200
-#define LED_PIN 4
+#define LED_PIN 5
 #define BRIGHTNESS 64
 #define LED_TYPE WS2811
 #define COLOR_ORDER GRB
