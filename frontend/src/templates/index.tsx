@@ -7,13 +7,10 @@ import Meta from 'components/meta'
 import Layout from 'components/layout'
 import Page from 'templates/page'
 
-const Template = ({ data, location }) => (
+const Template = ({ data }: Record<string, any>) => (
   <div>
-    <Layout location={location}>
-      <Meta
-        title={get(data, 'post.frontmatter.title')}
-        site={get(data, 'site.meta')}
-      />
+    <Layout>
+      <Meta title={get(data, 'post.frontmatter.title')} />
       {get(data, 'post.frontmatter.layout') != 'page' ? (
         <Post
           data={get(data, 'post')}
@@ -22,7 +19,7 @@ const Template = ({ data, location }) => (
           }}
         />
       ) : (
-        <Page {...this.props} />
+        <Page data={data} />
       )}
     </Layout>
   </div>
@@ -35,9 +32,7 @@ export const pageQuery = graphql`
       meta: siteMetadata {
         title
         description
-        url: siteUrl
         author
-        twitter
       }
     }
     post: markdownRemark(frontmatter: { path: { eq: $path } }) {

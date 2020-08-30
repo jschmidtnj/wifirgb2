@@ -1,13 +1,14 @@
+require('dotenv').config()
+
 module.exports = {
   siteMetadata: {
     title: 'RGB',
     description: 'rgb controller',
-    siteUrl: 'https://wifirgb2.netlify.com',
     author: 'joshuaschmidt',
-    twitter: 'jschmidtnj',
   },
   pathPrefix: '/',
   plugins: [
+    'gatsby-plugin-typescript',
     {
       resolve: 'gatsby-source-filesystem',
       options: {
@@ -47,7 +48,7 @@ module.exports = {
       },
     },
     {
-      resolve: `gatsby-plugin-manifest`,
+      resolve: 'gatsby-plugin-manifest',
       options: {
         name: 'RGB',
         short_name: 'RGB',
@@ -90,7 +91,6 @@ module.exports = {
     'gatsby-plugin-react-helmet',
     'gatsby-plugin-sass',
     'gatsby-plugin-sharp',
-    'gatsby-plugin-sitemap',
     'gatsby-plugin-twitter',
     'gatsby-transformer-sharp',
   ],

@@ -1,46 +1,29 @@
-#include "esp8266_peri.h"
-#include "i2s_reg.h"
-#include "slc_register.h"
-#include "user_interface.h"
 #include <Arduino.h>
 #include <ArduinoJson.h>
-#include <TimeLib.h>
-#include <NtpClientLib.h>
-#include <ESP8266WiFi.h>
+#include <WiFi.h>
 #include <FastLED.h>
+#include <time.h>
+#include <WebServer.h>
 #include <PubSubClient.h>
-#include <config.h>
+#include "config.h"
 
 #define NTP_TIMEOUT 1500
 // check every hour
 #define CHECK_TIME_PERIOD 3600
 // shuts off at 11:00
 #define SHUTOFF_HOUR 23
-int8_t timeZone = 1;
-int8_t minutesTimeZone = 0;
+// UTC timezone (-4 for EST)
+int8_t timeZone = -4;
+// uses daylight savings
+boolean daylightSavings = true;
 const PROGMEM char *ntpServer = "pool.ntp.org";
-boolean syncEventTriggered = false; // True if a time even has been triggered
-NTPSyncEvent_t ntpEvent;            // Last triggered event
 
 #define BAUD_RATE 115200
-#define LED_PIN 0
+#define LED_PIN 5
 #define BRIGHTNESS 64
 #define LED_TYPE WS2811
 #define COLOR_ORDER GRB
 #define UPDATES_PER_SECOND 100
-
-// microphone stuff
-
-#define I2S_CLK_FREQ 160000000 // Hz
-#define I2S_24BIT 3            // I2S 24 bit half data
-#define I2S_LEFT 2             // I2S RX Left channel
-
-#define I2SI_DATA 12 // I2S data on GPIO12
-#define I2SI_BCK 13  // I2S clk on GPIO13
-#define I2SI_WS 14   // I2S select on GPIO14
-
-#define SLC_BUF_CNT 8  // Number of buffers in the I2S circular buffer
-#define SLC_BUF_LEN 64 // Length of one buffer, in 32-bit words.
 
 using namespace std;
 
@@ -57,13 +40,11 @@ PubSubClient client(espClient);
 boolean on = false;
 boolean justTurnedOff = true;
 char *mode;
-int r, g, b, a, speed = 1, musicWheelPosition = 255, musicDecay = 0,
-                musicDecayCheck = 0, musicWheelSpeed = 3;
+int r, g, b, a, speed = 1;
 uint8_t brightness = 255; // brightness of given mode
-long musicPreReact = 0.0f, musicReact = 0.0f;
 double brightnessDelta = 0.0, colorBrightness = 0.0, fadePeriod = 0.0;
 
-vector<string> modes{"c", "m", "p", "r", "rs", "rsb", "pg", "ra",
+vector<string> modes{"c", "p", "r", "rs", "rsb", "pg", "ra",
                      "bw", "bwb", "cl", "pa", "a", "ab", "w", "ha",
                      "th", "ch", "ny", "ea"};
 
@@ -74,7 +55,6 @@ bool check_in_modes(const char *mode)
 
 void callback(char *thetopic, byte *payload, unsigned int length)
 {
-  // Serial.println(thetopic);
   if (strcmp(thetopic, controlTopic) == 0)
   {
     DeserializationError err = deserializeJson(data, payload);
@@ -85,7 +65,7 @@ void callback(char *thetopic, byte *payload, unsigned int length)
       errorMessageStr += string(err.c_str());
       Serial.println(errorMessageStr.c_str());
       string errorMessageJsonStr = "{\"error\":\"" + errorMessageStr + "\"}";
-      client.publish(errorTopic, errorMessageJsonStr.c_str());
+      client.publish(messageTopic, errorMessageJsonStr.c_str());
       return;
     }
     if (!strcmp(data["p"], servicePassword) == 0)
@@ -93,7 +73,7 @@ void callback(char *thetopic, byte *payload, unsigned int length)
       string errorMessageStr = "invalid password";
       Serial.println(errorMessageStr.c_str());
       string errorMessageJsonStr = "{\"error\":\"" + errorMessageStr + "\"}";
-      client.publish(errorTopic, errorMessageJsonStr.c_str());
+      client.publish(messageTopic, errorMessageJsonStr.c_str());
       return;
     }
     if (data["m"])
@@ -109,7 +89,7 @@ void callback(char *thetopic, byte *payload, unsigned int length)
           Serial.println(errorMessageStr.c_str());
           string errorMessageJsonStr =
               "{\"error\":\"" + errorMessageStr + "\"}";
-          client.publish(errorTopic, errorMessageJsonStr.c_str());
+          client.publish(messageTopic, errorMessageJsonStr.c_str());
           return;
         }
         r = data["c"]["r"];
@@ -122,7 +102,7 @@ void callback(char *thetopic, byte *payload, unsigned int length)
         string errorMessageStr = "invalid mode";
         Serial.println(errorMessageStr.c_str());
         string errorMessageJsonStr = "{\"error\":\"" + errorMessageStr + "\"}";
-        client.publish(errorTopic, errorMessageJsonStr.c_str());
+        client.publish(messageTopic, errorMessageJsonStr.c_str());
         return;
       }
       else
@@ -140,63 +120,19 @@ void callback(char *thetopic, byte *payload, unsigned int length)
   }
 }
 
-void onSTAConnected(WiFiEventStationModeConnected ipInfo)
-{
-  Serial.printf("Connected to %s\r\n", ipInfo.ssid.c_str());
-}
+const char chars[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
+char id[17];
 
-// Start NTP only after IP network is connected
-void onSTAGotIP(WiFiEventStationModeGotIP ipInfo)
+const char * generateID()
 {
-  Serial.printf("Got IP: %s\r\n", ipInfo.ip.toString().c_str());
-  Serial.printf("Connected: %s\r\n", WiFi.status() == WL_CONNECTED ? "yes" : "no");
-  NTP.setInterval(63);
-  NTP.setNTPTimeout(NTP_TIMEOUT);
-  NTP.begin(ntpServer, timeZone, true, minutesTimeZone);
-}
-
-// Manage network disconnection
-void onSTADisconnected(WiFiEventStationModeDisconnected event_info)
-{
-  Serial.printf("Disconnected from SSID: %s\n", event_info.ssid.c_str());
-  Serial.printf("Reason: %d\n", event_info.reason);
-  NTP.stop(); // NTP sync can be disabled to avoid sync errors
-}
-
-void processSyncEvent(NTPSyncEvent_t ntpEvent)
-{
-  if (ntpEvent < 0)
-  {
-    Serial.printf("Time Sync error: %d\n", ntpEvent);
-    if (ntpEvent == noResponse)
-      Serial.println("NTP server not reachable");
-    else if (ntpEvent == invalidAddress)
-      Serial.println("Invalid NTP server address");
-    else if (ntpEvent == errorSending)
-      Serial.println("Error sending request");
-    else if (ntpEvent == responseError)
-      Serial.println("NTP response error");
+  randomSeed(analogRead(0));
+  int i = 0;
+  for(i = 0; i < sizeof(id) - 1; i++) {
+    id[i] = chars[random(sizeof(chars))];
   }
-  else
-  {
-    if (ntpEvent == timeSyncd)
-    {
-      Serial.print("Got NTP time: ");
-      Serial.println(NTP.getTimeDateString(NTP.getLastNTPSync()));
-    }
-  }
-}
+  id[sizeof(id) -1] = '\0';
 
-void connectTimeServer()
-{
-  static WiFiEventHandler e1, e2, e3;
-  NTP.onNTPSyncEvent([](NTPSyncEvent_t event) {
-    ntpEvent = event;
-    syncEventTriggered = true;
-  });
-  e1 = WiFi.onStationModeGotIP(onSTAGotIP); // As soon WiFi is connected, start NTP Client
-  e2 = WiFi.onStationModeDisconnected(onSTADisconnected);
-  e3 = WiFi.onStationModeConnected(onSTAConnected);
+  return id;
 }
 
 void connect()
@@ -213,40 +149,49 @@ void connect()
     Serial.println("Connected to WiFi..");
     client.setServer(mqttServer, mqttPort);
     client.setCallback(callback);
-    connectTimeServer();
+    configTime(timeZone * 3600, daylightSavings ? 3600 : 0, ntpServer);
   }
+  boolean justConnectedMQTT = false;
   while (!client.connected())
   {
     notConnected = true;
     Serial.println("Connecting to MQTT...");
-    if (client.connect("ESP8266Client", mqttUser, mqttPassword))
+    if (client.connect(generateID(), mqttUser, mqttPassword))
     {
       Serial.println("connected");
+      justConnectedMQTT = true;
     }
     else
     {
       Serial.print("failed with state ");
-      Serial.print(client.state());
+      Serial.println(client.state());
       delay(2000);
     }
   }
-  if (notConnected)
+  if (justConnectedMQTT)
+  {
+    Serial.println("send connection message");
+    string errorMessageJsonStr = "{\"info\":\"just connected\"}";
+    client.publish(messageTopic, errorMessageJsonStr.c_str());
+    Serial.println("connection message sent");
     client.subscribe(controlTopic);
+  }
 }
 
 void getTime()
 {
   static int last_check = millis();
-  if (syncEventTriggered)
-  {
-    processSyncEvent(ntpEvent);
-    syncEventTriggered = false;
-  }
   int current_time = millis();
   if ((current_time - last_check) > CHECK_TIME_PERIOD * 1000)
   {
     last_check = millis();
-    if (atoi(NTP.getTimeStr().substring(0, 2).c_str()) == SHUTOFF_HOUR && on)
+    struct tm timeData;
+    if (!getLocalTime(&timeData))
+    {
+      Serial.println("Failed to obtain time");
+      return;
+    }
+    if (timeData.tm_hour == SHUTOFF_HOUR && on)
     {
       on = false;
       justTurnedOff = true;
@@ -254,194 +199,9 @@ void getTime()
   }
 }
 
-// MICROPHONE STUFF ****************************************
-
-/**
- * Convert I2S data.
- * Data is 18 bit signed, MSBit first, two's complement.
- * Note: We can only send 31 cycles from ESP8266 so we only
- * shift by 13 instead of 14.
- * The 240200 is a magic calibration number I haven't figured
- * out yet.
- */
-#define convert(sample) (((int32_t)(sample) >> 13) - 240200)
-
-typedef struct
-{
-  uint32_t blocksize : 12;
-  uint32_t datalen : 12;
-  uint32_t unused : 5;
-  uint32_t sub_sof : 1;
-  uint32_t eof : 1;
-  volatile uint32_t owner : 1;
-
-  uint32_t *buf_ptr;
-  uint32_t *next_link_ptr;
-} sdio_queue_t;
-
-static sdio_queue_t i2s_slc_items[SLC_BUF_CNT]; // I2S DMA buffer descriptors
-static uint32_t
-    *i2s_slc_buf_pntr[SLC_BUF_CNT]; // Pointer to the I2S DMA buffer data
-static volatile uint32_t rx_buf_cnt = 0;
-static volatile uint32_t rx_buf_idx = 0;
-static volatile bool rx_buf_flag = false;
-
-/**
- * Set I2S clock.
- * I2S bits mode only has space for 15 extra bits,
- * 31 in total. The
- */
-void i2s_set_rate(uint32_t rate)
-{
-  uint32_t i2s_clock_div = (I2S_CLK_FREQ / (rate * 31 * 2)) & I2SCDM;
-  uint32_t i2s_bck_div =
-      (I2S_CLK_FREQ / (rate * i2s_clock_div * 31 * 2)) & I2SBDM;
-
-  // RX master mode, RX MSB shift, right first, msb right
-  I2SC &= ~(I2STSM | I2SRSM | (I2SBMM << I2SBM) | (I2SBDM << I2SBD) |
-            (I2SCDM << I2SCD));
-  I2SC |= I2SRF | I2SMR | I2SRMS | (i2s_bck_div << I2SBD) |
-          (i2s_clock_div << I2SCD);
-}
-
-/**
- * Initialise I2S as a RX master.
- */
-void i2s_init()
-{
-  // Config RX pin function
-  PIN_FUNC_SELECT(PERIPHS_IO_MUX_MTDI_U, FUNC_I2SI_DATA);
-  PIN_FUNC_SELECT(PERIPHS_IO_MUX_MTCK_U, FUNC_I2SI_BCK);
-  PIN_FUNC_SELECT(PERIPHS_IO_MUX_MTMS_U, FUNC_I2SI_WS);
-
-  // Enable a 160MHz clock
-  I2S_CLK_ENABLE();
-
-  // Reset I2S
-  I2SC &= ~(I2SRST);
-  I2SC |= I2SRST;
-  I2SC &= ~(I2SRST);
-
-  // Reset DMA
-  I2SFC &= ~(I2SDE | (I2SRXFMM << I2SRXFM));
-
-  // Enable DMA
-  I2SFC |= I2SDE | (I2S_24BIT << I2SRXFM);
-
-  // Set RX single channel (left)
-  I2SCC &= ~((I2STXCMM << I2STXCM) | (I2SRXCMM << I2SRXCM));
-  I2SCC |= (I2S_LEFT << I2SRXCM);
-  i2s_set_rate(16667);
-
-  // Set RX data to be received
-  I2SRXEN = SLC_BUF_LEN;
-
-  // Bits mode
-  I2SC |= (15 << I2SBM);
-
-  // Start receiver
-  I2SC |= I2SRXS;
-}
-
-/**
- * Triggered when SLC has finished writing
- * to one of the buffers.
- */
-void ICACHE_RAM_ATTR slc_isr(void *para)
-{
-  uint32_t status;
-
-  status = SLCIS;
-  SLCIC = 0xFFFFFFFF;
-
-  if (status == 0)
-  {
-    return;
-  }
-
-  if (status & SLCITXEOF)
-  {
-    // We have received a frame
-    ETS_SLC_INTR_DISABLE();
-    sdio_queue_t *finished = (sdio_queue_t *)SLCTXEDA;
-
-    finished->eof = 0;
-    finished->owner = 1;
-    finished->datalen = 0;
-
-    for (int i = 0; i < SLC_BUF_CNT; i++)
-    {
-      if (finished == &i2s_slc_items[i])
-      {
-        rx_buf_idx = i;
-      }
-    }
-    rx_buf_cnt++;
-    rx_buf_flag = true;
-    ETS_SLC_INTR_ENABLE();
-  }
-}
-
-/**
- * Initialize the SLC module for DMA operation.
- * Counter intuitively, we use the TXLINK here to
- * receive data.
- */
-void slc_init()
-{
-  for (int x = 0; x < SLC_BUF_CNT; x++)
-  {
-    i2s_slc_buf_pntr[x] = (uint32_t *)malloc(SLC_BUF_LEN * 4);
-    for (int y = 0; y < SLC_BUF_LEN; y++)
-      i2s_slc_buf_pntr[x][y] = 0;
-
-    i2s_slc_items[x].unused = 0;
-    i2s_slc_items[x].owner = 1;
-    i2s_slc_items[x].eof = 0;
-    i2s_slc_items[x].sub_sof = 0;
-    i2s_slc_items[x].datalen = SLC_BUF_LEN * 4;
-    i2s_slc_items[x].blocksize = SLC_BUF_LEN * 4;
-    i2s_slc_items[x].buf_ptr = (uint32_t *)&i2s_slc_buf_pntr[x][0];
-    i2s_slc_items[x].next_link_ptr =
-        (uint32_t *)((x < (SLC_BUF_CNT - 1)) ? (&i2s_slc_items[x + 1])
-                                             : (&i2s_slc_items[0]));
-  }
-
-  // Reset DMA
-  ETS_SLC_INTR_DISABLE();
-  SLCC0 |= SLCRXLR | SLCTXLR;
-  SLCC0 &= ~(SLCRXLR | SLCTXLR);
-  SLCIC = 0xFFFFFFFF;
-
-  // Configure DMA
-  SLCC0 &= ~(SLCMM << SLCM);    // Clear DMA MODE
-  SLCC0 |= (1 << SLCM);         // Set DMA MODE to 1
-  SLCRXDC |= SLCBINR | SLCBTNR; // Enable INFOR_NO_REPLACE and TOKEN_NO_REPLACE
-
-  // Feed DMA the 1st buffer desc addr
-  SLCTXL &= ~(SLCTXLAM << SLCTXLA);
-  SLCTXL |= (uint32_t)&i2s_slc_items[0] << SLCTXLA;
-
-  ETS_SLC_INTR_ATTACH(slc_isr, NULL);
-
-  // Enable EOF interrupt
-  SLCIE = SLCITXEOF;
-  ETS_SLC_INTR_ENABLE();
-
-  // Start transmission
-  SLCTXL |= SLCTXLS;
-}
-
 void setup()
 {
-  // micrphone stuff
-  rx_buf_cnt = 0;
-  pinMode(I2SI_WS, OUTPUT);
-  pinMode(I2SI_BCK, OUTPUT);
-  pinMode(I2SI_DATA, INPUT);
   Serial.begin(BAUD_RATE);
-  slc_init();
-  i2s_init();
 
   FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, num_leds)
       .setCorrection(TypicalLEDStrip);
@@ -650,36 +410,15 @@ void ChangePalettePeriodically()
   }
 }
 
-// FUNCTION TO GENERATE COLOR BASED ON VIRTUAL WHEEL
-// https://github.com/NeverPlayLegit/Rainbow-Fader-FastLED/blob/master/rainbow.ino
-CRGB music_scroll(int pos)
-{
-  CRGB color(0, 0, 0);
-  if (pos < 85)
-  {
-    color.g = 0;
-    color.r = ((float)pos / 85.0f) * 255.0f;
-    color.b = 255 - color.r;
-  }
-  else if (pos < 170)
-  {
-    color.g = ((float)(pos - 85) / 85.0f) * 255.0f;
-    color.r = 255 - color.g;
-    color.b = 0;
-  }
-  else if (pos < 256)
-  {
-    color.b = ((float)(pos - 170) / 85.0f) * 255.0f;
-    color.g = 255 - color.b;
-    color.r = 1;
-  }
-  return color;
-}
+uint64_t loop_count = 1;
 
 void loop()
 {
   // first make sure you are connected to wifi
   connect();
+
+  loop_count++;
+  // Serial.printf("loop count %d\n", loop_count);
   // then get current data
   client.loop();
   // then do the action
@@ -708,62 +447,12 @@ void loop()
     }
     else if (strcmp(mode, modes[1].c_str()) == 0)
     {
-      double audioScaled = 0.0;
-      if (rx_buf_flag)
-      {
-        for (int i = 0; i < SLC_BUF_LEN; i++)
-        {
-          if (i2s_slc_buf_pntr[rx_buf_idx][i] > 0)
-          {
-            audioScaled =
-                (double)convert(i2s_slc_buf_pntr[rx_buf_idx][i] / 4096.0);
-            break;
-          }
-        }
-        rx_buf_flag = false;
-      }
-      if (audioScaled > 0.0)
-      {
-        musicPreReact =
-            audioScaled * num_leds;     // TRANSLATE AUDIO LEVEL TO NUMBER OF LEDs
-        if (musicPreReact > musicReact) // ONLY ADJUST LEVEL OF LED IF LEVEL
-                                        // HIGHER THAN CURRENT LEVEL
-          musicReact = musicPreReact;
-      }
-      for (int i = num_leds - 1; i >= 0; i--)
-      {
-        if (i < musicReact)
-        {
-          leds[i] = music_scroll((i * 256 / 50 + musicWheelPosition) % 256);
-          leds[i].fadeLightBy(brightness);
-        }
-        else
-        {
-          leds[i] = CRGB(0, 0, 0);
-        }
-      }
-      musicWheelPosition =
-          musicWheelPosition - musicWheelSpeed; // SPEED OF COLOR WHEEL
-      if (musicWheelPosition < 0)               // RESET COLOR WHEEL
-        musicWheelPosition = 255;
-      // REMOVE LEDs
-      musicDecayCheck++;
-      if (musicDecayCheck > musicDecay) // how many ms before one light decay
-      {
-        musicDecayCheck = 0;
-        if (musicReact > 0)
-          musicReact--;
-      }
-      yield();
-    }
-    else if (strcmp(mode, modes[2].c_str()) == 0)
-    {
       ChangePalettePeriodically();
       static uint8_t startIndex = 0;
       startIndex = startIndex + speed;
       FillLEDsFromPaletteColors(startIndex);
     }
-    else if (strcmp(mode, modes[3].c_str()) == 0)
+    else if (strcmp(mode, modes[2].c_str()) == 0)
     {
       currentPalette = RainbowColors_p;
       currentBlending = LINEARBLEND;
@@ -771,7 +460,7 @@ void loop()
       startIndex = startIndex + speed;
       FillLEDsFromPaletteColors(startIndex);
     }
-    else if (strcmp(mode, modes[4].c_str()) == 0)
+    else if (strcmp(mode, modes[3].c_str()) == 0)
     {
       currentPalette = RainbowStripeColors_p;
       currentBlending = NOBLEND;
@@ -779,7 +468,7 @@ void loop()
       startIndex = startIndex + speed;
       FillLEDsFromPaletteColors(startIndex);
     }
-    else if (strcmp(mode, modes[5].c_str()) == 0)
+    else if (strcmp(mode, modes[4].c_str()) == 0)
     {
       currentPalette = RainbowStripeColors_p;
       currentBlending = LINEARBLEND;
@@ -787,7 +476,7 @@ void loop()
       startIndex = startIndex + speed;
       FillLEDsFromPaletteColors(startIndex);
     }
-    else if (strcmp(mode, modes[6].c_str()) == 0)
+    else if (strcmp(mode, modes[5].c_str()) == 0)
     {
       SetupPurpleAndGreenPalette();
       currentBlending = LINEARBLEND;
@@ -795,7 +484,7 @@ void loop()
       startIndex = startIndex + speed;
       FillLEDsFromPaletteColors(startIndex);
     }
-    else if (strcmp(mode, modes[7].c_str()) == 0)
+    else if (strcmp(mode, modes[6].c_str()) == 0)
     {
       SetupTotallyRandomPalette();
       currentBlending = LINEARBLEND;
@@ -803,7 +492,7 @@ void loop()
       startIndex = startIndex + speed;
       FillLEDsFromPaletteColors(startIndex);
     }
-    else if (strcmp(mode, modes[8].c_str()) == 0)
+    else if (strcmp(mode, modes[7].c_str()) == 0)
     {
       SetupBlackAndWhiteStripedPalette();
       currentBlending = NOBLEND;
@@ -811,7 +500,7 @@ void loop()
       startIndex = startIndex + speed;
       FillLEDsFromPaletteColors(startIndex);
     }
-    else if (strcmp(mode, modes[9].c_str()) == 0)
+    else if (strcmp(mode, modes[8].c_str()) == 0)
     {
       SetupBlackAndWhiteStripedPalette();
       currentBlending = LINEARBLEND;
@@ -819,7 +508,7 @@ void loop()
       startIndex = startIndex + speed;
       FillLEDsFromPaletteColors(startIndex);
     }
-    else if (strcmp(mode, modes[10].c_str()) == 0)
+    else if (strcmp(mode, modes[9].c_str()) == 0)
     {
       currentPalette = CloudColors_p;
       currentBlending = LINEARBLEND;
@@ -827,7 +516,7 @@ void loop()
       startIndex = startIndex + speed;
       FillLEDsFromPaletteColors(startIndex);
     }
-    else if (strcmp(mode, modes[11].c_str()) == 0)
+    else if (strcmp(mode, modes[10].c_str()) == 0)
     {
       currentPalette = PartyColors_p;
       currentBlending = LINEARBLEND;
@@ -835,7 +524,7 @@ void loop()
       startIndex = startIndex + speed;
       FillLEDsFromPaletteColors(startIndex);
     }
-    else if (strcmp(mode, modes[12].c_str()) == 0)
+    else if (strcmp(mode, modes[11].c_str()) == 0)
     {
       currentPalette = myRedWhiteBluePaletteP;
       currentBlending = NOBLEND;
@@ -843,7 +532,7 @@ void loop()
       startIndex = startIndex + speed;
       FillLEDsFromPaletteColors(startIndex);
     }
-    else if (strcmp(mode, modes[13].c_str()) == 0)
+    else if (strcmp(mode, modes[12].c_str()) == 0)
     {
       currentPalette = myRedWhiteBluePaletteP;
       currentBlending = LINEARBLEND;
@@ -851,7 +540,7 @@ void loop()
       startIndex = startIndex + speed;
       FillLEDsFromPaletteColors(startIndex);
     }
-    else if (strcmp(mode, modes[14].c_str()) == 0)
+    else if (strcmp(mode, modes[13].c_str()) == 0)
     {
       SetupWarmPalette();
       currentBlending = LINEARBLEND;
@@ -859,7 +548,7 @@ void loop()
       startIndex = startIndex + speed;
       FillLEDsFromPaletteColors(startIndex);
     }
-    else if (strcmp(mode, modes[15].c_str()) == 0)
+    else if (strcmp(mode, modes[14].c_str()) == 0)
     {
       SetupHalloweenPalette();
       currentBlending = LINEARBLEND;
@@ -867,7 +556,7 @@ void loop()
       startIndex = startIndex + speed;
       FillLEDsFromPaletteColors(startIndex);
     }
-    else if (strcmp(mode, modes[16].c_str()) == 0)
+    else if (strcmp(mode, modes[15].c_str()) == 0)
     {
       SetupThanksgivingPalette();
       currentBlending = LINEARBLEND;
@@ -875,7 +564,7 @@ void loop()
       startIndex = startIndex + speed;
       FillLEDsFromPaletteColors(startIndex);
     }
-    else if (strcmp(mode, modes[17].c_str()) == 0)
+    else if (strcmp(mode, modes[16].c_str()) == 0)
     {
       SetupChristmasPalette();
       currentBlending = LINEARBLEND;
@@ -883,7 +572,7 @@ void loop()
       startIndex = startIndex + speed;
       FillLEDsFromPaletteColors(startIndex);
     }
-    else if (strcmp(mode, modes[18].c_str()) == 0)
+    else if (strcmp(mode, modes[17].c_str()) == 0)
     {
       SetupNewYearsPalette();
       currentBlending = LINEARBLEND;
@@ -891,7 +580,7 @@ void loop()
       startIndex = startIndex + speed;
       FillLEDsFromPaletteColors(startIndex);
     }
-    else if (strcmp(mode, modes[19].c_str()) == 0)
+    else if (strcmp(mode, modes[18].c_str()) == 0)
     {
       SetupEasterPalette();
       currentBlending = LINEARBLEND;
@@ -909,5 +598,6 @@ void loop()
       FastLED.clear();
     }
   }
+  // comment this to test mqtt on its own
   FastLED.delay(1000 / UPDATES_PER_SECOND);
 }

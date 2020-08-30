@@ -7,7 +7,7 @@ import map from 'lodash/map'
 
 import './style.scss'
 
-const Post = ({ data, options }) => {
+const Post = ({ data, options }: Record<string, any>) => {
   const {
     category,
     tags,
@@ -62,18 +62,18 @@ const Post = ({ data, options }) => {
 
 export default Post
 
-const getDescription = body => {
+const getDescription = (body: string) => {
   body = body.replace(/<blockquote>/g, '<blockquote class="blockquote">')
   if (body.match('<!--more-->')) {
-    body = body.split('<!--more-->')
-    if (typeof body[0] !== 'undefined') {
-      return body[0]
+    const bodySplit = body.split('<!--more-->')
+    if (typeof bodySplit[0] !== 'undefined') {
+      return bodySplit[0]
     }
   }
   return body
 }
 
-const Button = ({ path, label, primary }) => (
+const Button = ({ path, label, primary }: Record<string, any>) => (
   <Link className="readmore" to={path}>
     <span
       className={`btn btn-outline-primary btn-block ${
@@ -85,7 +85,7 @@ const Button = ({ path, label, primary }) => (
   </Link>
 )
 
-const Badges = ({ items, primary }) =>
+const Badges = ({ items, primary }: Record<string, any>) =>
   map(items, (item, i) => {
     return (
       <span
